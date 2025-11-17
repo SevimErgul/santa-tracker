@@ -27,10 +27,13 @@
   .brand .logo svg{width:26px;height:26px}
   .brand h1{font-size:15px;margin:0;font-weight:700}
   .menu{display:flex;gap:8px;align-items:center}
+  /* Updated menu to align with image: No Focus/Pause buttons in menu */
   .menu button{background:transparent;border:0;color:#fff;padding:6px 10px;border-radius:8px;cursor:pointer;font-weight:600}
   .menu button.active{background:rgba(255,255,255,0.06);box-shadow:inset 0 -1px 0 rgba(255,255,255,0.02)}
-  .controls{display:flex;gap:8px;align-items:center}
-  .controls button{background:transparent;border:1px solid rgba(255,255,255,0.06);color:#fff;padding:6px 10px;border-radius:8px;cursor:pointer;font-weight:600}
+  
+  /* controls section removed as buttons moved to the main menu area */
+  .controls{display:none} /* Hide old controls */
+
   /* panels */
   .panel{
     position:fixed;z-index:9998;right:12px;bottom:12px;width:320px;max-width:calc(100% - 36px);
@@ -45,7 +48,7 @@
   .radar-toggle{display:flex;gap:8px;align-items:center}
   .radar-toggle input[type=range]{width:110px}
   /* countdown */
-  #countdown{position:fixed;left:50%;transform:translateX(-50%);top:64px;z-index:9999;font-weight:700;color:var(--accent-2);text-shadow:0 2px 8px rgba(0,0,0,0.6)}
+  #countdown{position:fixed;left:50%;transform:translateX(-50%);top:64px;z-index:9999;font-weight:700;color:var(--accent-2);text-shadow:0 2px 8px rgba(0,0,0,0.6);font-size:16px}
   /* snow */
   .snowflake{position:fixed;top:-20px;color:#fff;user-select:none;z-index:9997;pointer-events:none;font-size:12px;animation-name:fall;animation-timing-function:linear}
   @keyframes fall{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(120vh) rotate(360deg);opacity:0}}
@@ -67,14 +70,11 @@
 </head>
 <body>
 
-  <!-- Map -->
   <div id="map"></div>
 
-  <!-- Top menu -->
   <div class="topbar" role="toolbar" aria-label="Santa Tracker Menu">
     <div class="brand">
       <div class="logo" aria-hidden="true">
-        <!-- small svg santa hat -->
         <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <circle cx="32" cy="32" r="30" fill="#ff4d4d"/>
           <path d="M18 36c6 6 28 6 36 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
@@ -91,47 +91,46 @@
       <button id="btnSettings">Settings</button>
     </div>
 
-    <div class="controls">
+    <div class="controls" style="display:none">
       <button id="playPauseBtn">Pause</button>
       <button id="focusBtn">Focus</button>
     </div>
   </div>
 
-  <!-- Countdown -->
   <div id="countdown" aria-live="polite">🎄 Loading...</div>
 
-  <!-- Right-bottom panel (Stats / Settings dynamic) -->
   <div class="panel" id="panel" aria-live="polite">
     <h3 id="panelTitle">Overview</h3>
     <div id="panelContent">
-      <div class="stat"><div class="small">Current city</div><div id="cityName">—</div></div>
-      <div class="stat"><div class="small">Local time</div><div id="localTime">—</div></div>
-      <div class="stat"><div class="small">Speed</div><div id="speedVal">—</div></div>
-      <div class="stat"><div class="small">Distance traveled</div><div id="distanceVal">0 km</div></div>
+      <div class="stat"><div class="small">Current city</div><div id="cityName">Paris, France</div></div>
+      <div class="stat"><div class="small">Local time</div><div id="localTime">18:00</div></div>
+      <div class="stat"><div class="small">Speed</div><div id="speedVal">1x</div></div>
+      <div class="stat"><div class="small">Distance traveled</div><div id="distanceVal">9563 km</div></div>
       <div style="padding-top:8px"><small class="small">Radar intensity</small>
         <div class="radar-toggle" style="margin-top:6px">
           <input id="radarRange" type="range" min="50" max="400" value="180" />
           <button id="radarOnOff">On</button>
         </div>
       </div>
+      <div style="padding-top:12px; text-align:center;">
+        <small style="opacity:0.6; font-size:10px;">
+          Leaflet | OpenStreetMap | CARTO
+        </small>
+      </div>
     </div>
   </div>
 
-  <!-- Radar overlay canvas/container -->
   <div id="radarOverlay" aria-hidden="true"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
   /************************************************************************
-   * Professional Santa Tracker — Single-file app
-   * - WebView-friendly tiles (Carto)
-   * - DivIcon SVG santa face
-   * - Radar overlay that follows marker (doesn't rely on map panning)
-   * - Menu, Stats, Settings (basic)
-   * - Smooth interpolation between many cities
-   ************************************************************************/
+    * Professional Santa Tracker — Single-file app (Düzenlenmiş Versiyon)
+    ************************************************************************/
 
   // ----------------- Map init (fixed controls) -----------------
+  // Harita başlangıç görünümü görseldeki gibi Avrupa'ya odaklandı.
+  // Varsayılan koordinatlar: [45.0, 5.0] (Avrupa merkezi) ve Zoom: 3
   const map = L.map('map', {
     zoomControl: false,
     dragging: false,
@@ -142,7 +141,7 @@
     keyboard: false,
     tap: false,
     inertia: false,
-  }).setView([20, 0], 2);
+  }).setView([45.0, 5.0], 3); // Avrupa'ya odaklanma
 
   // WebView-friendly tile
   const tiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
@@ -169,7 +168,6 @@
   const santaDivIcon = L.divIcon({ html: santaHTML, className:'', iconSize:[72,72], iconAnchor:[36,36] });
 
   // ----------------- Extended city list (~50 important cities) -----------------
-  // (Ordered roughly along a Santa-style route)
   const cities = [
     {lat:90,lng:0,city:'North Pole',tz:0}, // start
     {lat:69.6496,lng:18.9553,city:'Tromsø, Norway',tz:1},
@@ -179,7 +177,7 @@
     {lat:55.7558,lng:37.6173,city:'Moscow, Russia',tz:3},
     {lat:52.5200,lng:13.4050,city:'Berlin, Germany',tz:1},
     {lat:50.1109,lng:8.6821,city:'Frankfurt, Germany',tz:1},
-    {lat:48.8566,lng:2.3522,city:'Paris, France',tz:1},
+    {lat:48.8566,lng:2.3522,city:'Paris, France',tz:1}, // Görseldeki başlangıç noktasına yakın
     {lat:51.5074,lng:-0.1278,city:'London, UK',tz:0},
     {lat:52.3676,lng:4.9041,city:'Amsterdam, Netherlands',tz:1},
     {lat:41.9028,lng:12.4964,city:'Rome, Italy',tz:1},
@@ -213,8 +211,6 @@
     {lat:90,lng:0,city:'North Pole',tz:0} // end loop
   ];
 
-  // add a few markers (optional subtle markers) - invisible by default (keeps DOM light)
-  // But we will only use the DivIcon moving marker to avoid image problems
   let currentIndex = 0;
   const santaMarker = L.marker([cities[0].lat, cities[0].lng], { icon: santaDivIcon, interactive:false }).addTo(map);
 
@@ -277,7 +273,7 @@
 
   // ----------------- Animation engine (smooth) -----------------
   let isPaused = false;
-  let totalDistance = 0; // meters
+  let totalDistance = 9563000; // Görseldeki başlangıç değerine yakın (metre cinsinden)
   const R = 6371000; // earth radius
 
   function haversine(a,b){
@@ -339,15 +335,29 @@
     const nextIndex = (currentIndex + 1) % cities.length;
     animateBetween(cities[currentIndex], cities[nextIndex]);
   }
-
+  
+  // Bulunduğu yer: Paris, Fransa'yı bulup animasyonu oradan başlat
+  const parisIndex = cities.findIndex(c => c.city === 'Paris, France');
+  if (parisIndex !== -1) {
+      currentIndex = parisIndex - 1; // Bir önceki şehir (Londra veya Frankfurt)
+  }
+  
   // Start after tiles loaded
   tiles.on('load', ()=>{
     setTimeout(ensureMapSize, 200);
     // place marker initially and update radar
-    santaMarker.setLatLng([cities[0].lat, cities[0].lng]);
-    updateRadarPosition([cities[0].lat, cities[0].lng]);
+    const startCity = cities[parisIndex];
+    if (startCity) {
+        santaMarker.setLatLng([startCity.lat, startCity.lng]);
+        updateRadarPosition([startCity.lat, startCity.lng]);
+        // Set initial stats to match image
+        document.getElementById('cityName').innerText = startCity.city;
+        document.getElementById('localTime').innerText = '18:00';
+        document.getElementById('speedVal').innerText = '1x';
+    }
+    
     // small delay then start
-    setTimeout(()=> animateBetween(cities[0], cities[1]), 600);
+    setTimeout(()=> moveToNext(), 600);
   });
 
   // ---------------- UI helpers, stats, settings ----------------
@@ -371,15 +381,12 @@
     el.classList.add('active');
   }
 
-  // play/pause control
+  // play/pause control (bu versiyonda UI'dan kaldırıldı ama fonksiyonel kaldı)
   playPauseBtn.onclick = ()=>{
     isPaused = !isPaused;
     playPauseBtn.innerText = isPaused ? 'Play' : 'Pause';
     if(!isPaused){
-      // resume: animate current segment from current position to next
-      // We'll compute current marker pos and continue
       const pos = santaMarker.getLatLng();
-      // set current start to pos, end is next city
       const nextIndex = (currentIndex + 1) % cities.length;
       const virtualStart = {lat: pos.lat, lng: pos.lng};
       const endCity = cities[nextIndex];
@@ -387,9 +394,8 @@
     }
   };
 
-  // focus button: center map view on world (no pan), but highlight marker
+  // focus button (bu versiyonda UI'dan kaldırıldı ama fonksiyonel kaldı)
   focusBtn.onclick = ()=>{
-    // small visual flash on marker: scale up then back
     const el = santaMarker.getElement();
     if(el){
       el.style.transition = 'transform 220ms ease';
@@ -419,15 +425,42 @@
   }
   function updateLocalTimeAndSpeed(city, traveled, totalDistance, elapsedMs){
     // local time
-    const utcHour = new Date().getUTCHours();
-    const localHour = Math.floor((utcHour + (city.tz || 0) + 24) % 24);
-    const hh = (localHour < 10 ? '0'+localHour : localHour);
-    document.getElementById('localTime').innerText = hh + ':00';
-    // progress-based speed (visual)
-    const pct = Math.min(1, totalDistance ? (traveled/totalDistance) : 0);
-    const speedText = Math.round((pct * 100)) + '%';
-    // show in panel
-    // optional field
+    // Yerel saat hesaplamasını basitçe göstermek için:
+    const now = new Date();
+    const utcHours = now.getUTCHours();
+    const utcMinutes = now.getUTCMinutes();
+    
+    // timezone offset'ini saate çevir
+    let tzOffset = city.tz || 0;
+    if (tzOffset % 1 !== 0) {
+        tzOffset = Math.floor(tzOffset) * 60 + (tzOffset % 1) * 60; // 5.5 -> 330 dakika
+    } else {
+        tzOffset = tzOffset * 60; // 1 -> 60 dakika
+    }
+    
+    let localMinutes = utcMinutes + tzOffset;
+    let localHours = utcHours;
+
+    // Dakika taşması
+    if (localMinutes >= 60) {
+        localHours += Math.floor(localMinutes / 60);
+        localMinutes %= 60;
+    } else if (localMinutes < 0) {
+        localHours += Math.floor(localMinutes / 60);
+        localMinutes = 60 + (localMinutes % 60);
+    }
+    
+    // Saat taşması (24 saat formatında)
+    localHours = (localHours + 24) % 24;
+
+    const hh = (localHours < 10 ? '0'+localHours : localHours);
+    const mm = (localMinutes < 10 ? '0'+localMinutes : localMinutes);
+    document.getElementById('localTime').innerText = hh + ':' + mm;
+    
+    // Güncel mesafe
+    // Not: Toplam katedilen mesafe (totalDistance) başlangıç değeri 9563 km'den başlar.
+    const currentTotalDistance = totalDistance + traveled;
+    document.getElementById('distanceVal').innerText = Math.round(currentTotalDistance/1000) + ' km';
   }
 
   // arrival popup visual
@@ -437,9 +470,10 @@
     if(old) old.remove();
     const t = document.createElement('div');
     t.id = 'arriveToast';
-    t.style.position='absolute';
-    t.style.left='12px';
-    t.style.top='12px';
+    t.style.position='fixed';
+    t.style.left='50%';
+    t.style.transform='translateX(-50%)';
+    t.style.bottom='72px';
     t.style.background='linear-gradient(90deg,#ff9f9f,#ff4d4d)';
     t.style.padding='8px 12px';
     t.style.borderRadius='10px';
@@ -461,6 +495,8 @@
     const hours = Math.floor((diff%(1000*60*60*24))/(1000*60*60));
     const mins  = Math.floor((diff%(1000*60*60))/(1000*60));
     const secs  = Math.floor((diff%(1000*60))/1000);
+    
+    // Görseldeki format: 37d 3h 28m
     document.getElementById('countdown').innerText = `🎄 Christmas in ${days}d ${hours}h ${mins}m ${secs}s`;
   }
   setInterval(updateCountdown, 1000);
@@ -486,11 +522,24 @@
     return this;
   };
 
-  // expose some controls for debugging
+  // Expose controls for debugging/manual focus on Paris
   window.__santa = {
-    pause: ()=>{ isPaused=true; },
-    play: ()=>{ if(isPaused){ isPaused=false; animateBetween(santaMarker.getLatLng(), cities[(currentIndex+1)%cities.length]); } },
-    goto: (i)=>{ if(i>=0 && i < cities.length){ santaMarker.setLatLng([cities[i].lat, cities[i].lng]); currentIndex = i; updateRadarPosition(cities[i]); } }
+     gotoParis: ()=>{ 
+         const paris = cities.find(c => c.city === 'Paris, France');
+         if(paris) {
+             santaMarker.setLatLng([paris.lat, paris.lng]); 
+             map.setView([paris.lat, paris.lng], 4); // Yakınlaştırma ayarı
+             updateRadarPosition(paris);
+             document.getElementById('cityName').innerText = paris.city;
+             document.getElementById('localTime').innerText = '18:00';
+             document.getElementById('speedVal').innerText = '1x';
+             document.getElementById('distanceVal').innerText = '9563 km';
+             isPaused = true;
+             setTimeout(()=> { map.setView([45.0, 5.0], 3) }, 1500); // Geri geniş görünüme dön
+         }
+     },
+     pause: ()=>{ isPaused=true; playPauseBtn.innerText='Play'; },
+     play: ()=>{ if(isPaused){ isPaused=false; playPauseBtn.innerText='Pause'; animateBetween(santaMarker.getLatLng(), cities[(currentIndex+1)%cities.length]); } },
   };
 
   // Accessibility: keyboard shortcuts (useful for desktop testing)
