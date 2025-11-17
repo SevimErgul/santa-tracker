@@ -3,18 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Santa Tracker – Mobile Friendly</title>
+<title>Santa Tracker – Global Map</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
 <style>
 html, body {
-    margin:0; padding:0;
-    height:100%; width:100%;
+    margin:0;
+    padding:0;
+    height:100%;
+    width:100%;
     overflow:hidden;
     background:#1a1a1a;
 }
-#map { height:100%; width:100%; }
+#map {
+    height:100%;
+    width:100%;
+}
 #header, #countdown {
     position:absolute;
     width:100%;
@@ -25,6 +30,8 @@ html, body {
 #header { top:10px; font-size:22px; font-weight:bold; color:white; }
 #countdown { top:45px; font-size:18px; font-weight:bold; color:#FFD700; }
 
+.santa-icon { animation:bounce 1.2s infinite; }
+@keyframes bounce { 0%{transform:translateY(0);}50%{transform:translateY(-6px);}100%{transform:translateY(0);} }
 .snowflake {
   position:absolute; top:-10px; color:white; font-size:12px; user-select:none; z-index:9999; pointer-events:none;
   animation-name:fall; animation-timing-function:linear;
@@ -37,30 +44,37 @@ html, body {
 </head>
 <body>
 
-<div id="header">🎅 Santa Tracker</div>
+<div id="header">🎅 Santa Tracker – Global</div>
 <div id="countdown"></div>
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 /* ---------------- Map ---------------- */
-const map = L.map('map', { zoomControl:false, dragging:false }).setView([20,0],2);
+const map = L.map('map', { zoomControl:false }).setView([20,0],2);
 
-// WebView uyumlu ücretsiz tile (Carto Positron)
-L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
-    subdomains: 'abcd',
-    maxZoom:19
+// Tile layer (Mapbox free token, güvenli HTTPS)
+const tileLayer = L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHR2ZmZnY2gifQ.-5dwtpLg26wPfi0mK5lShQ', {
+    attribution:'© <a href="https://www.mapbox.com/">Mapbox</a>',
+    maxZoom:18,
+    id:'mapbox/streets-v11',
+    tileSize:512,
+    zoomOffset:-1
 }).addTo(map);
 
+// Tam ekran WebView uyumlu
+function resizeMap(){ map.invalidateSize(); }
+window.addEventListener('load', ()=>setTimeout(resizeMap,500));
+window.addEventListener('resize', resizeMap);
+
 /* ---------------- Santa Icon ---------------- */
-// Güvenilir HTTPS icon
 const santaIcon = L.icon({
-    iconUrl:'https://upload.wikimedia.org/wikipedia/commons/8/88/Santa_Claus_icon.png',
-    iconSize:[50,50]
+    iconUrl:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAABfUlEQVRoge2YwQ2DMBBFT4XG0iEFyAAYO1NoTgEFOvYcTtYpWZyoROnl2I+GocvCwMJqP8FjIq3ZkhmYqC/1p6ScDJDHgN3hHYJkFX9GmAZAh4uUkc8AyJNwAtCkK5dN+AUV/nQO2iG9Rz1BOLi0i1xZVxZsAqgqpmu3lUyhBkaCkUANqNJG2iRkqBZpVEXWZk6iMNCmX5ZUkJ7+M8DVrL3tYfAcCu2a+zqQKkYtgi64GQXv99Rxxk4NfgQ1JZLqMZ0E18sRM3svGbs5wdgI8wDLMJ+7J1ug/6qXyK0lJK5rIp2bdwnO7RSCyl0tR3U7w3cH7yHytD9pzVwzqAkfB+BrWDSCewBoFQSk4AGlJZbVDCQv4AbkA+P2ztS9I7gAAAABJRU5ErkJggg==',
+    iconSize:[50,50],
+    className:'santa-icon'
 });
 
-/* ---------------- Cities & Marker ---------------- */
+/* ---------------- Cities & Animation ---------------- */
 const cities=[
   {lat:90,lng:0,city:"North Pole",tz:0},
   {lat:59.33,lng:18.07,city:"Stockholm",tz:1},
@@ -76,32 +90,31 @@ const cities=[
 let currentIndex=0;
 let santaMarker=L.marker([cities[0].lat,cities[0].lng],{icon:santaIcon}).addTo(map);
 
-/* ---------------- Marker Animation (Fixed Map) ---------------- */
-function animateSanta(marker){
-    const nextIndex = (currentIndex+1)%cities.length;
-    const start=cities[currentIndex];
-    const end=cities[nextIndex];
-    let stepCount=100;
-    let step=0;
+function animateSanta(marker,start,end,duration){
+    let startTime=null;
+    function step(timestamp){
+        if(!startTime) startTime=timestamp;
+        let progress=(timestamp-startTime)/duration;
+        if(progress>1) progress=1;
+        let lat=start.lat+(end.lat-start.lat)*progress;
+        let lng=start.lng+(end.lng-start.lng)*progress;
+        marker.setLatLng([lat,lng]);
+        map.panTo([lat,lng], {animate:true, duration:0.5});
 
-    const latStep = (end.lat - start.lat)/stepCount;
-    const lngStep = (end.lng - start.lng)/stepCount;
+        // Gece/Gündüz
+        const utcHour=new Date().getUTCHours();
+        const localHour=(utcHour+end.tz+24)%24;
+        map.getContainer().style.filter=(localHour>=18||localHour<6)?'brightness(0.4)':'brightness(1)';
 
-    const moveInterval = setInterval(()=>{
-        if(step>=stepCount){
-            clearInterval(moveInterval);
-            currentIndex=nextIndex;
-            animateSanta(marker);
-        } else {
-            const lat=start.lat+latStep*step;
-            const lng=start.lng+lngStep*step;
-            marker.setLatLng([lat,lng]);
-            step++;
+        if(progress<1){ window.requestAnimationFrame(step); }
+        else {
+            currentIndex=(currentIndex+1)%cities.length;
+            animateSanta(marker,end,cities[currentIndex],4000);
         }
-    },40); // smooth
+    }
+    window.requestAnimationFrame(step);
 }
-
-animateSanta(santaMarker);
+tileLayer.on('load', ()=>animateSanta(santaMarker,cities[0],cities[1],4000));
 
 /* ---------------- Countdown ---------------- */
 function updateCountdown(){
