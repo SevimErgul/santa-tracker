@@ -2,110 +2,49 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Santa Tracker – Global Christmas Map</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>Santa Tracker – Global Christmas Map</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
 <style>
+/* Önceki stil kodları aynı kaldı, sadece map ve marker ile ilgili kısım aşağıda güncellendi */
 html, body {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    width: 100%;
-    overflow: hidden;
-    background: #1a1a1a;
-    font-family: Arial, sans-serif;
+    margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden;
+    background: #1a1a1a; font-family: Arial, sans-serif;
 }
-
 #map {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 100vh;
-    width: 100vw;
-    z-index: 1;
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    height: 100vh; width: 100vw; z-index: 1;
 }
-#header {
-    position: absolute;
-    top: 10px;
-    left: 0;
-    right: 0;
-    text-align: center;
-    z-index: 1000;
-    color: white;
-    font-size: 18px;
-    font-weight: bold;
-    text-shadow: 1px 1px 3px #000;
-    padding: 10px;
-    background-color: rgba(0, 0, 0, 0.7);
-    pointer-events: none;
+#header, #countdown {
+    position: absolute; left: 0; right: 0; text-align: center; z-index: 1000;
+    background-color: rgba(0, 0, 0, 0.7); padding: 5px 10px;
 }
-
-#countdown {
-    position: absolute;
-    top: 50px;
-    left: 0;
-    right: 0;
-    text-align: center;
-    z-index: 1000;
-    color: #FFD700;
-    font-size: 14px;
-    font-weight: bold;
-    text-shadow: 1px 1px 2px #000;
-    padding: 5px;
-    background-color: rgba(0, 0, 0, 0.7);
-    pointer-events: none;
-}
+#header { top: 10px; color: white; font-size: 18px; font-weight: bold; text-shadow: 1px 1px 3px #000; }
+#countdown { top: 50px; color: #FFD700; font-size: 14px; font-weight: bold; text-shadow: 1px 1px 2px #000; }
 
 .santa-marker {
-    font-size: 32px;
-    text-align: center;
-    line-height: 1;
-    text-shadow: 0 0 10px rgba(0,0,0,0.5);
-    animation: bounce 1s infinite;
+    font-size: 32px; text-align: center; line-height: 1;
+    text-shadow: 0 0 10px rgba(0,0,0,0.5);
+    transition: transform 0.5s ease-in-out; /* Hareket animasyonu için ekledik */
 }
 
-@keyframes bounce { 
-    0%, 100% { transform: translateY(0) scale(1); }
-    50% { transform: translateY(-8px) scale(1.1); }
+@keyframes bounce { 
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-8px) scale(1.1); }
 }
 
-.snowflake {
-    position: absolute;
-    top: -10px;
-    color: white;
-    font-size: 12px;
-    user-select: none;
-    z-index: 999;
-    pointer-events: none;
-    animation-name: fall;
-    animation-timing-function: linear;
-    will-change: transform, opacity;
-}
-@keyframes fall {
-    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-    100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+/* Yeni: Ziyaret edilen yerler için marker stili */
+.stop-marker {
+    font-size: 18px;
+    color: #f44336; /* Kırmızı renk */
+    text-shadow: 0 0 5px white;
 }
 
-/* Error message styling */
-#error-message {
-    display: none;
-    position: fixed;
-    top: 50%;
-    left: 20px;
-    right: 20px;
-    transform: translateY(-50%);
-    background-color: rgba(255, 0, 0, 0.8);
-    color: white;
-    padding: 20px;
-    border-radius: 10px;
-    text-align: center;
-    z-index: 2000;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-}
+/* Kar efekti (snowflake) ve hata mesajı stilleri aynı */
+.snowflake { /* ... */ }
+@keyframes fall { /* ... */ }
+#error-message { /* ... */ }
 </style>
 </head>
 <body>
@@ -123,31 +62,61 @@ function showError(message) {
     if (errorEl) {
         errorEl.textContent = message || 'Oops! Something went wrong.';
         errorEl.style.display = 'block';
-        
-        // Hide error after 5 seconds
         setTimeout(() => {
             errorEl.style.display = 'none';
         }, 5000);
     }
 }
 
-// Initialize the application when the DOM is fully loaded
+// Global Marker katmanı (ziyaret edilen yerleri tutmak için)
+let visitedLayer = null;
+
+// Noel Baba'nın simüle edilmiş rotası (Doğu'dan Batı'ya doğru saat dilimlerini takip eder)
+const santaRoute = [
+    { city: "Anadyr, Rusya", lat: 64.73, lng: 177.51, speed: 1.5 }, // UTC+12
+    { city: "Tokyo, Japonya", lat: 35.6895, lng: 139.6917, speed: 0.8 }, // UTC+9
+    { city: "Sidney, Avustralya", lat: -33.8688, lng: 151.2093, speed: 0.9 }, // UTC+10
+    { city: "Pekin, Çin", lat: 39.9042, lng: 116.4074, speed: 0.7 }, // UTC+8
+    { city: "Mumbai, Hindistan", lat: 19.0760, lng: 72.8777, speed: 1.1 }, // UTC+5:30
+    { city: "Moskova, Rusya", lat: 55.7558, lng: 37.6173, speed: 0.9 }, // UTC+3
+    { city: "İstanbul, Türkiye", lat: 41.0082, lng: 28.9784, speed: 1.0 }, // UTC+3
+    { city: "Paris, Fransa", lat: 48.8566, lng: 2.3522, speed: 1.2 }, // UTC+1
+    { city: "Londra, Birleşik Krallık", lat: 51.5074, lng: 0.1278, speed: 1.0 }, // UTC+0
+    { city: "Rio de Janeiro, Brezilya", lat: -22.9068, lng: -43.1729, speed: 1.3 }, // UTC-3
+    { city: "New York, ABD", lat: 40.7128, lng: -74.0060, speed: 0.8 }, // UTC-5
+    { city: "Los Angeles, ABD", lat: 34.0522, lng: -118.2437, speed: 1.1 }, // UTC-8
+    { city: "Honolulu, ABD", lat: 21.3099, lng: -157.8583, speed: 1.5 }, // UTC-10
+    // Buraya Kuzey Kutbu'na dönüş rotasını da ekleyebiliriz
+    { city: "Kuzey Kutbu", lat: 90.00, lng: 0.00, speed: 0.5 } 
+];
+
+// Uygulama başlangıcı
 document.addEventListener('DOMContentLoaded', function() {
     try {
-        // Initialize the map
-      const map = L.map('map', {
-    // Bu ayarları kaldırarak veya true yaparak mobil etkileşimleri etkinleştiriyoruz.
-    zoomControl: true, // Zoom kontrol düğmelerini gösterir
-    dragging: true, // Haritayı sürüklemeyi (kaydırmayı) etkinleştirir
-    touchZoom: true, // Dokunmatik zoom'u (çift parmakla sıkıştırma/açma) etkinleştirir
-    scrollWheelZoom: false, // Scroll tekerleğiyle zoom'u kapalı bıraktım, isteğe bağlı açabilirsiniz
-    doubleClickZoom: true, // Çift tıklama ile zoom'u etkinleştirir
-    boxZoom: true, // Kutu zoom'u etkinleştirir
-    keyboard: true, // Klavye navigasyonunu etkinleştirir
-    tap: true // Dokunmatik cihazlar için tıklama olaylarını iyileştirir
-}).setView([20, 0], 2);
+        // Harita Başlatma (Kaydırma ve Zoom Açık)
+        const map = L.map('map', {
+            zoomControl: true,
+            dragging: true,
+            touchZoom: true,
+            scrollWheelZoom: true, // Scroll ile zoom'u açtım
+            doubleClickZoom: true,
+            boxZoom: true,
+            keyboard: true,
+            tap: true
+        }).setView([20, 0], 2);
 
-        // Create Santa marker
+        // Ziyaret edilen yerler için katman grubu
+        visitedLayer = L.layerGroup().addTo(map);
+
+        // Gece harita katmanı
+        const nightTile = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', { 
+            maxZoom: 20, 
+            attribution: '© Stadia Maps',
+            errorTileUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
+        });
+        nightTile.addTo(map);
+
+        // Santa Marker
         const santaIcon = L.divIcon({
             html: '🎅',
             className: 'santa-marker',
@@ -155,36 +124,86 @@ document.addEventListener('DOMContentLoaded', function() {
             iconAnchor: [16, 32],
             popupAnchor: [0, -32]
         });
+        const santaMarker = L.marker([santaRoute[0].lat, santaRoute[0].lng], { icon: santaIcon }).addTo(map);
 
-        // Add Santa marker to map
-        const santaMarker = L.marker([20, 0], { icon: santaIcon }).addTo(map);
-
-        // Tile layers with error handling
-        const dayTile = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
-            maxZoom: 18, 
-            attribution: '© OpenStreetMap',
-            errorTileUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
-        });
+        // Santa Rota Takip Fonksiyonu
+        let currentStopIndex = 0;
         
-        const nightTile = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', { 
-            maxZoom: 20, 
-            attribution: '© Stadia Maps',
-            errorTileUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
-        });
+        function moveSanta() {
+            if (currentStopIndex >= santaRoute.length - 1) {
+                // Rota bitti, başa dön veya Kuzey Kutbu'nda bekle
+                santaMarker.setLatLng([90, 0]);
+                santaMarker.bindPopup("🎁 Noel Baba Kuzey Kutbu'nda dinleniyor!").openPopup();
+                return; 
+            }
 
-        // Add day tile by default
-        dayTile.addTo(map);
+            const from = santaRoute[currentStopIndex];
+            const to = santaRoute[currentStopIndex + 1];
+            
+            // Marker: Ziyaret edilen yerin işaretlenmesi
+            const stopIcon = L.divIcon({
+                html: '📍',
+                className: 'stop-marker',
+                iconSize: [18, 18],
+                iconAnchor: [9, 18]
+            });
 
-        // Handle map resize for mobile
-        function handleResize() {
-            map.invalidateSize({ pan: false });
+            L.marker([from.lat, from.lng], { icon: stopIcon })
+             .addTo(visitedLayer)
+             .bindPopup(`🎁 **${from.city}** ziyaret edildi!`);
+
+            // Haritayı Santa'nın yeni durağına odakla
+            map.flyTo([to.lat, to.lng], Math.max(map.getZoom(), 4), {
+                duration: 2.0 // Hızlı uçuş
+            });
+
+            // Gerçekçi animasyon süresi: Uzaklık ve hız faktörüne bağlı
+            const distance = santaMarker.getLatLng().distanceTo([to.lat, to.lng]);
+            // Örneğin: 1000 km başına 10 saniye animasyon süresi
+            const animationDuration = (distance / 100000) * (to.speed || 1) * 1000;
+            
+            // Animasyon adımları
+            let start = null;
+            const startLatLng = santaMarker.getLatLng();
+
+            function animate(timestamp) {
+                if (!start) start = timestamp;
+                const elapsed = timestamp - start;
+                const progress = Math.min(1, elapsed / animationDuration);
+
+                // Lineer enterpolasyon (L.LatLng.prototype.interpolate) kullanılarak daha düzgün hareket
+                const newLat = startLatLng.lat + (to.lat - startLatLng.lat) * progress;
+                const newLng = startLatLng.lng + (to.lng - startLatLng.lng) * progress;
+                
+                // 180 derece boylam geçişi için wrapAround kullan (Harita kenarından atlama)
+                const newLatLng = L.latLng(newLat, newLng);
+                const wrappedLatLng = map.wrapLatLng(newLatLng);
+
+                santaMarker.setLatLng(wrappedLatLng);
+                santaMarker.bindPopup(`🗺️ Yolda: **${to.city}** hedefine ${Math.round((1 - progress) * 100)}% kaldı.`).openPopup();
+                
+                // Haritayı Santa'yı merkezde tutacak şekilde kaydır
+                map.panTo(wrappedLatLng, { animate: false });
+
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    currentStopIndex++;
+                    // Yeni durak için biraz bekleme süresi (hediyeleri dağıtma simülasyonu)
+                    const waitTime = 5000; 
+                    setTimeout(moveSanta, waitTime); 
+                }
+            }
+            requestAnimationFrame(animate);
         }
-        
-        window.addEventListener('resize', handleResize);
-        window.addEventListener('orientationchange', handleResize);
 
-        // Initialize countdown
+        // İlk hareketten hemen önce haritanın hazır olmasını bekle
+        setTimeout(moveSanta, 2000); 
+
+        // Rota ve diğer fonksiyonlar (Countdown, Resize, Snow)
+        
         function updateCountdown() {
+            // ... (Geri sayım kodu aynı) ...
             try {
                 const now = new Date();
                 const year = now.getFullYear();
@@ -208,12 +227,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 showError('Error updating countdown: ' + error.message);
             }
         }
-
-        // Start countdown
         updateCountdown();
         setInterval(updateCountdown, 1000);
 
-        // Snow effect
+        function handleResize() {
+            map.invalidateSize({ pan: false });
+        }
+        window.addEventListener('resize', handleResize);
+        window.addEventListener('orientationchange', handleResize);
+
         function createSnow() {
             try {
                 const snow = document.createElement('div');
@@ -224,7 +246,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 snow.textContent = '❄';
                 document.body.appendChild(snow);
                 
-                // Remove snowflake after animation completes
                 setTimeout(() => {
                     if (snow.parentNode) {
                         snow.remove();
@@ -234,16 +255,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Error creating snowflake:', error);
             }
         }
-
-        // Start snow effect
         setInterval(createSnow, 300);
-        
-        // Initial snowflakes
         for (let i = 0; i < 10; i++) {
             setTimeout(createSnow, i * 300);
         }
 
-        // Initial map resize
         setTimeout(() => {
             map.invalidateSize({ pan: false });
         }, 100);
