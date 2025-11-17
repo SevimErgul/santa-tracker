@@ -8,18 +8,56 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
 <style>
-html, body { margin:0; padding:0; height:100%; overflow:hidden; background:#1a1a1a; font-family: Arial, sans-serif; }
-#map { height:100%; width:100%; transition: filter 1s ease; }
-#header { position:absolute; top:10px; width:100%; text-align:center; z-index:9999; color:white; font-size:22px; font-weight:bold; text-shadow:2px 2px 4px #000; }
-#countdown { position:absolute; top:45px; width:100%; text-align:center; z-index:9999; color:#FFD700; font-size:18px; font-weight:bold; text-shadow:1px 1px 3px #000; }
+html, body {
+    margin:0;
+    padding:0;
+    height:100%;
+    width:100%;
+    overflow:hidden;
+    background:#1a1a1a;
+    font-family: Arial, sans-serif;
+}
+#map {
+    height:100%;
+    width:100%;
+    transition: filter 1s ease;
+}
+#header {
+    position:absolute;
+    top:10px;
+    width:100%;
+    text-align:center;
+    z-index:9999;
+    color:white;
+    font-size:22px;
+    font-weight:bold;
+    text-shadow:2px 2px 4px #000;
+}
+#countdown {
+    position:absolute;
+    top:45px;
+    width:100%;
+    text-align:center;
+    z-index:9999;
+    color:#FFD700;
+    font-size:18px;
+    font-weight:bold;
+    text-shadow:1px 1px 3px #000;
+}
 
 .santa-icon { animation:bounce 1.2s infinite; }
 @keyframes bounce { 0%{transform:translateY(0);}50%{transform:translateY(-6px);}100%{transform:translateY(0);} }
 
 .snowflake {
-  position:absolute; top:-10px; color:white; font-size:12px;
-  user-select:none; z-index:9999; pointer-events:none;
-  animation-name:fall; animation-timing-function:linear;
+  position:absolute;
+  top:-10px;
+  color:white;
+  font-size:12px;
+  user-select:none;
+  z-index:9999;
+  pointer-events:none;
+  animation-name:fall;
+  animation-timing-function:linear;
 }
 @keyframes fall {
   0% { transform: translateY(0) rotate(0deg); opacity:1; }
@@ -47,19 +85,24 @@ const map = L.map('map', {
     tap:false
 }).setView([20,0],2);
 
-// Tile layers
+// Tile layers (HTTPS)
 const dayTile = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:18, attribution:'© OpenStreetMap' });
 const nightTile = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', { maxZoom:20, attribution:'© Stadia Maps' });
 dayTile.addTo(map);
 
-// Invalidate size after loading to fix mobile issues
+// Ensure full screen in mobile WebView
 map.whenReady(() => {
     map.invalidateSize(true);
-    setTimeout(()=>map.invalidateSize(true),500);
+    setTimeout(() => map.invalidateSize(true), 1000); // Extra delay for WebView
 });
 
 /* ----------------- Santa Icon ----------------- */
-const santaIcon = L.icon({ iconUrl:'https://i.imgur.com/9QjvZ2M.png', iconSize:[80,80], className:'santa-icon' });
+// Updated HTTPS icon to avoid broken image
+const santaIcon = L.icon({
+    iconUrl:'https://upload.wikimedia.org/wikipedia/commons/1/12/Santa_Claus_icon.png',
+    iconSize:[50,50],
+    className:'santa-icon'
+});
 
 /* ----------------- Realistic Santa Route ----------------- */
 const cities = [
