@@ -1,28 +1,18 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
-<title>Santa Tracker – Christmas Map</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Santa Tracker – Live Christmas Map</title>
 
 <!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
 <style>
-    body, html {
-        margin: 0;
-        padding: 0;
-        height: 100%;
-        background: #e00000; /* yılbaşı kırmızı */
-        font-family: Arial, sans-serif;
-    }
-    #map {
-        height: 100%;
-        width: 100%;
-    }
+    html, body { margin:0; padding:0; height:100%; background:#1a1a1a; }
+    #map { height:100%; width:100%; }
 
-    /* Yılbaşı başlık */
+    /* Header */
     #header {
         position: absolute;
         top: 10px;
@@ -35,7 +25,20 @@
         text-shadow: 2px 2px 4px #000;
     }
 
-    /* Santa ikonu */
+    /* Countdown */
+    #countdown {
+        position: absolute;
+        top: 45px;
+        width: 100%;
+        text-align: center;
+        z-index: 9999;
+        color: #FFD700;
+        font-size: 18px;
+        font-weight: bold;
+        text-shadow: 1px 1px 3px #000;
+    }
+
+    /* Santa marker animation */
     .santa-icon {
         animation: bounce 1.2s infinite;
     }
@@ -45,56 +48,96 @@
         50% { transform: translateY(-6px); }
         100% { transform: translateY(0); }
     }
+
+    /* Kar efekti */
+    .snowflake {
+        position: absolute;
+        top: -10px;
+        color: white;
+        font-size: 12px;
+        user-select: none;
+        z-index: 9999;
+        pointer-events: none;
+        animation-name: fall;
+        animation-timing-function: linear;
+    }
+
+    @keyframes fall {
+        0% { transform: translateY(0) rotate(0deg); opacity:1; }
+        100% { transform: translateY(100vh) rotate(360deg); opacity:0; }
+    }
 </style>
 </head>
-
 <body>
 
 <div id="header">🎅 Santa Tracker – Live</div>
+<div id="countdown"></div>
 <div id="map"></div>
 
 <!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
-    // Haritayı başlat
-    const map = L.map('map', {
-        zoomControl: false
-    }).setView([40, 0], 2); // dünya görünümü
+    // 1️⃣ Map
+    const map = L.map('map', { zoomControl: false }).setView([20,0], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap' }).addTo(map);
 
-    // Ücretsiz OpenStreetMap tile
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 18,
-        attribution: '© OpenStreetMap'
-    }).addTo(map);
+    // 2️⃣ Santa Icon
+    const santaIcon = L.icon({ iconUrl: 'https://i.imgur.com/9QjvZ2M.png', iconSize:[80,80], className:'santa-icon' });
 
-    // Santa ikonu (CDN)
-    const santaIcon = L.icon({
-        iconUrl: "https://i.imgur.com/9QjvZ2M.png",
-        iconSize: [100, 100],
-        className: "santa-icon"
-    });
+    // 3️⃣ Santa Route (sample cities)
+    const route = [
+        [90,0,"North Pole"],
+        [59.95,30.33,"St. Petersburg, Russia"],
+        [48.85,2.35,"Paris, France"],
+        [52.52,13.40,"Berlin, Germany"],
+        [51.51,-0.13,"London, UK"],
+        [40.71,-74.00,"New York, USA"],
+        [34.05,-118.24,"Los Angeles, USA"],
+        [35.68,139.76,"Tokyo, Japan"],
+        [55.75,37.62,"Moscow, Russia"],
+        [90,0,"North Pole"]
+    ];
 
-    // Santa'nın başlangıç konumu (Kuzey Kutbu)
-    let santaLat = 90;
-    let santaLng = 0;
+    let currentIndex = 0;
+    let santaMarker = L.marker(route[0].slice(0,2), {icon: santaIcon}).addTo(map);
 
-    const santaMarker = L.marker([santaLat, santaLng], { icon: santaIcon }).addTo(map);
-
-    // Santa'yı rastgele hareket ettiren basit animasyon
-    function moveSanta() {
-        santaLat += (Math.random() - 0.5) * 2;
-        santaLng += (Math.random() - 0.5) * 2;
-
-        if (santaLat > 90) santaLat = 89;
-        if (santaLat < -90) santaLat = -89;
-
-        santaMarker.setLatLng([santaLat, santaLng]);
+    function moveSanta(){
+        currentIndex = (currentIndex+1) % route.length;
+        let next = route[currentIndex].slice(0,2);
+        santaMarker.setLatLng(next);
+        map.panTo(next);
     }
+    setInterval(moveSanta, 3000); // 3 saniyede bir
 
-    // Her 2 saniyede bir hareket
-    setInterval(moveSanta, 2000);
+    // 4️⃣ Countdown to Christmas
+    function updateCountdown(){
+        let now = new Date();
+        let year = now.getFullYear();
+        let xmas = new Date(`December 25, ${year} 00:00:00`);
+        if(now > xmas) xmas = new Date(`December 25, ${year+1} 00:00:00`);
+        let diff = xmas - now;
+        let days = Math.floor(diff/(1000*60*60*24));
+        let hours = Math.floor((diff%(1000*60*60*24))/(1000*60*60));
+        let mins = Math.floor((diff%(1000*60*60))/(1000*60));
+        let secs = Math.floor((diff%(1000*60))/1000);
+        document.getElementById('countdown').innerText = `🎄 Christmas in ${days}d ${hours}h ${mins}m ${secs}s`;
+    }
+    setInterval(updateCountdown,1000);
+    updateCountdown();
+
+    // 5️⃣ Snow effect
+    function createSnow(){
+        const snow = document.createElement('div');
+        snow.className = 'snowflake';
+        snow.style.left = Math.random()*100+'vw';
+        snow.style.animationDuration = 5 + Math.random()*5 + 's';
+        snow.innerText = '❄';
+        document.body.appendChild(snow);
+        setTimeout(()=> snow.remove(), 10000);
+    }
+    setInterval(createSnow, 200);
+
 </script>
-
 </body>
 </html>
