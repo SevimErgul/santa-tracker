@@ -118,67 +118,139 @@ html, body {
 <script>
 // Error handling
 function showError(message) {
+    console.error(message);
     const errorEl = document.getElementById('error-message');
-    errorEl.textContent = message || 'Oops! Something went wrong.';
-    errorEl.style.display = 'block';
-    
-    // Hide error after 5 seconds
-    setTimeout(() => {
-        errorEl.style.display = 'none';
-    }, 5000);
+    if (errorEl) {
+        errorEl.textContent = message || 'Oops! Something went wrong.';
+        errorEl.style.display = 'block';
+        
+        // Hide error after 5 seconds
+        setTimeout(() => {
+            errorEl.style.display = 'none';
+        }, 5000);
+    }
 }
 
-try {
-    /* ----------------- Map Initialization ----------------- */
-    const map = L.map('map', {
-        zoomControl: false,
-        dragging: false,
-        touchZoom: false,
-        scrollWheelZoom: false,
-        doubleClickZoom: false,
-        boxZoom: false,
-        keyboard: false,
-        tap: false,
-        zoomSnap: 0.1,
-        zoomDelta: 0.1
-    }).setView([20, 0], 2);
+// Initialize the application when the DOM is fully loaded
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        // Initialize the map
+        const map = L.map('map', {
+            zoomControl: false,
+            dragging: false,
+            touchZoom: false,
+            scrollWheelZoom: false,
+            doubleClickZoom: false,
+            boxZoom: false,
+            keyboard: false,
+            tap: false
+        }).setView([20, 0], 2);
 
-    // Tile layers with error handling
-    const dayTile = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
-        maxZoom: 18, 
-        attribution: '© OpenStreetMap',
-        errorTileUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
-    });
-    
-    const nightTile = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', { 
-        maxZoom: 20, 
-        attribution: '© Stadia Maps',
-        errorTileUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
-    });
-    if(now>xmas) xmas = new Date(`December 25, ${year+1} 00:00:00`);
-    let diff = xmas-now;
-    let days = Math.floor(diff/(1000*60*60*24));
-    let hours = Math.floor((diff%(1000*60*60*24))/(1000*60*60));
-    let mins = Math.floor((diff%(1000*60*60))/(1000*60));
-    let secs = Math.floor((diff%(1000*60))/1000);
-    document.getElementById('countdown').innerText = `🎄 Christmas in ${days}d ${hours}h ${mins}m ${secs}s`;
-}
-setInterval(updateCountdown,1000);
-updateCountdown();
+        // Create Santa marker
+        const santaIcon = L.divIcon({
+            html: '🎅',
+            className: 'santa-marker',
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
+            popupAnchor: [0, -32]
+        });
 
-/* ----------------- Snow Effect ----------------- */
-function createSnow(){
-    const snow = document.createElement('div');
-    snow.className='snowflake';
-    snow.style.left=Math.random()*100+'vw';
-    snow.style.fontSize=(10+Math.random()*10)+'px';
-    snow.style.animationDuration=(5+Math.random()*5)+'s';
-    snow.innerText='❄';
-    document.body.appendChild(snow);
-    setTimeout(()=>snow.remove(),10000);
-}
-setInterval(createSnow,150);
+        // Add Santa marker to map
+        const santaMarker = L.marker([20, 0], { icon: santaIcon }).addTo(map);
 
+        // Tile layers with error handling
+        const dayTile = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
+            maxZoom: 18, 
+            attribution: '© OpenStreetMap',
+            errorTileUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
+        });
+        
+        const nightTile = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', { 
+            maxZoom: 20, 
+            attribution: '© Stadia Maps',
+            errorTileUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
+        });
+
+        // Add day tile by default
+        dayTile.addTo(map);
+
+        // Handle map resize for mobile
+        function handleResize() {
+            map.invalidateSize({ pan: false });
+        }
+        
+        window.addEventListener('resize', handleResize);
+        window.addEventListener('orientationchange', handleResize);
+
+        // Initialize countdown
+        function updateCountdown() {
+            try {
+                const now = new Date();
+                const year = now.getFullYear();
+                let xmas = new Date(`December 25, ${year} 00:00:00`);
+                
+                if (now > xmas) {
+                    xmas = new Date(`December 25, ${year + 1} 00:00:00`);
+                }
+                
+                const diff = xmas - now;
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const secs = Math.floor((diff % (1000 * 60)) / 1000);
+                
+                const countdownEl = document.getElementById('countdown');
+                if (countdownEl) {
+                    countdownEl.textContent = `🎄 Christmas in ${days}d ${hours}h ${mins}m ${secs}s`;
+                }
+            } catch (error) {
+                showError('Error updating countdown: ' + error.message);
+            }
+        }
+
+        // Start countdown
+        updateCountdown();
+        setInterval(updateCountdown, 1000);
+
+        // Snow effect
+        function createSnow() {
+            try {
+                const snow = document.createElement('div');
+                snow.className = 'snowflake';
+                snow.style.left = Math.random() * 100 + 'vw';
+                snow.style.fontSize = (10 + Math.random() * 10) + 'px';
+                snow.style.animationDuration = (5 + Math.random() * 5) + 's';
+                snow.textContent = '❄';
+                document.body.appendChild(snow);
+                
+                // Remove snowflake after animation completes
+                setTimeout(() => {
+                    if (snow.parentNode) {
+                        snow.remove();
+                    }
+                }, 10000);
+            } catch (error) {
+                console.error('Error creating snowflake:', error);
+            }
+        }
+
+        // Start snow effect
+        setInterval(createSnow, 300);
+        
+        // Initial snowflakes
+        for (let i = 0; i < 10; i++) {
+            setTimeout(createSnow, i * 300);
+        }
+
+        // Initial map resize
+        setTimeout(() => {
+            map.invalidateSize({ pan: false });
+        }, 100);
+
+    } catch (error) {
+        showError('Failed to initialize the map: ' + error.message);
+    }
+});
 </script>
 </body>
 </html>
