@@ -135,10 +135,16 @@ function showError(message) {
 document.addEventListener('DOMContentLoaded', function() {
     try {
         // Initialize the map
-       const map = L.map('map', {
-    // Mobil etkileşimleri kapatan tüm 'false' ayarlarını kaldırarak
-    // veya 'true' yaparak varsayılan davranışı geri yüklüyoruz.
-    zoomControl: true 
+      const map = L.map('map', {
+    // Bu ayarları kaldırarak veya true yaparak mobil etkileşimleri etkinleştiriyoruz.
+    zoomControl: true, // Zoom kontrol düğmelerini gösterir
+    dragging: true, // Haritayı sürüklemeyi (kaydırmayı) etkinleştirir
+    touchZoom: true, // Dokunmatik zoom'u (çift parmakla sıkıştırma/açma) etkinleştirir
+    scrollWheelZoom: false, // Scroll tekerleğiyle zoom'u kapalı bıraktım, isteğe bağlı açabilirsiniz
+    doubleClickZoom: true, // Çift tıklama ile zoom'u etkinleştirir
+    boxZoom: true, // Kutu zoom'u etkinleştirir
+    keyboard: true, // Klavye navigasyonunu etkinleştirir
+    tap: true // Dokunmatik cihazlar için tıklama olaylarını iyileştirir
 }).setView([20, 0], 2);
 
         // Create Santa marker
