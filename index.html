@@ -3,220 +3,502 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Santa Tracker — Stable Mobile</title>
+<title>Santa Tracker — Pro (Radar + Menu)</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
-  html,body{height:100%;width:100%;margin:0;padding:0;overflow:hidden;background:#081226;font-family:Arial,Helvetica,sans-serif;}
-  #map{height:100%;width:100%;}
-  #header,#countdown{position:absolute;z-index:9999;width:100%;text-align:center;text-shadow:0 1px 3px rgba(0,0,0,.8);pointer-events:none;} /* pointer-events eklendi */
-  #header{top:10px;color:#fff;font-weight:700;font-size:20px}
-  #countdown{top:44px;color:#ffd867;font-weight:700;font-size:15px}
-
-  /* Marker */
-  .santa-divicon{
-    display:flex;align-items:center;justify-content:center;
-    width:64px;height:64px;border-radius:50%;
-    background:linear-gradient(180deg,#ff4d4d,#c70000);
-    box-shadow:0 4px 12px rgba(0,0,0,0.5);
-    color:white;font-size:34px;
-    border:3px solid rgba(255,255,255,0.85);
-    transition: transform 0.1s ease-out; /* Hareket animasyonuna pürüzsüzlük ekler */
-  }
-
-  /* snow */
-  .snowflake{position:absolute;top:-10px;color:#fff;user-select:none;z-index:9999;pointer-events:none;font-size:12px;animation-name:fall;animation-timing-function:linear}
-  @keyframes fall{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(100vh) rotate(360deg);opacity:0}}
-  /* ensure leaflet marker icons render crisply */
-  .leaflet-container img{image-rendering:auto}
+  :root{
+    --bg:#071428;
+    --panel:#0f1720cc;
+    --accent:#ff4d4d;
+    --accent-2:#ffd867;
+  }
+  html,body{height:100%;width:100%;margin:0;padding:0;overflow:hidden;background:var(--bg);font-family:Inter, system-ui, Arial, Helvetica, sans-serif;color:#fff}
+  #map{position:fixed;top:0;left:0;right:0;bottom:0}
+  /* Top bar / menu */
+  .topbar{
+    position:fixed;left:12px;right:12px;top:12px;z-index:9999;
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    background:var(--panel);padding:8px;border-radius:12px;backdrop-filter:blur(6px);
+    box-shadow:0 6px 18px rgba(0,0,0,0.45);
+  }
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand .logo{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,var(--accent),#c40000);box-shadow:0 3px 8px rgba(0,0,0,0.4)}
+  .brand .logo svg{width:26px;height:26px}
+  .brand h1{font-size:15px;margin:0;font-weight:700}
+  .menu{display:flex;gap:8px;align-items:center}
+  .menu button{background:transparent;border:0;color:#fff;padding:6px 10px;border-radius:8px;cursor:pointer;font-weight:600}
+  .menu button.active{background:rgba(255,255,255,0.06);box-shadow:inset 0 -1px 0 rgba(255,255,255,0.02)}
+  .controls{display:flex;gap:8px;align-items:center}
+  .controls button{background:transparent;border:1px solid rgba(255,255,255,0.06);color:#fff;padding:6px 10px;border-radius:8px;cursor:pointer;font-weight:600}
+  /* panels */
+  .panel{
+    position:fixed;z-index:9998;right:12px;bottom:12px;width:320px;max-width:calc(100% - 36px);
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.22));
+    border-radius:12px;padding:12px;box-shadow:0 10px 30px rgba(0,0,0,0.5);backdrop-filter: blur(6px);
+    color:#fff;
+  }
+  .panel h3{margin:0 0 6px 0;font-size:14px}
+  .panel .stat{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed rgba(255,255,255,0.03)}
+  .small{font-size:12px;color:rgba(255,255,255,0.8)}
+  /* radar button */
+  .radar-toggle{display:flex;gap:8px;align-items:center}
+  .radar-toggle input[type=range]{width:110px}
+  /* countdown */
+  #countdown{position:fixed;left:50%;transform:translateX(-50%);top:64px;z-index:9999;font-weight:700;color:var(--accent-2);text-shadow:0 2px 8px rgba(0,0,0,0.6)}
+  /* snow */
+  .snowflake{position:fixed;top:-20px;color:#fff;user-select:none;z-index:9997;pointer-events:none;font-size:12px;animation-name:fall;animation-timing-function:linear}
+  @keyframes fall{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(120vh) rotate(360deg);opacity:0}}
+  /* DivIcon style for Santa (SVG inside for crisp look) */
+  .santa-divicon{display:flex;align-items:center;justify-content:center;width:72px;height:72px;border-radius:50%;
+    background:linear-gradient(180deg,var(--accent),#b10000);box-shadow:0 8px 22px rgba(0,0,0,0.45);border:3px solid rgba(255,255,255,0.12); }
+  .santa-divicon svg{width:44px;height:44px}
+  /* radar overlay (absolute element following marker) */
+  #radarOverlay{position:absolute;left:0;top:0;pointer-events:none;z-index:9996}
+  .radarPulse{position:absolute;border-radius:50%;opacity:0.9;border:2px solid rgba(255,77,77,0.9);box-shadow:0 0 18px rgba(255,77,77,0.18)}
+  /* small responsive tweaks */
+  @media (max-width:420px){
+    .panel{width:92%}
+    .topbar{left:6px;right:6px;top:8px;padding:6px}
+    .brand h1{font-size:13px}
+    #countdown{top:56px;font-size:13px}
+  }
 </style>
 </head>
 <body>
-  <div id="header">🎅 Santa Tracker — Stable View</div>
-  <div id="countdown"></div>
-  <div id="map"></div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script>
-  // --- 1. Harita ve Rota Ayarları ---
-  
-  // Harita ayarları: Marker'ı merkeze kilitlemek için tüm etkileşimler KAPALI tutuldu.
-  const map = L.map('map', {
-    zoomControl: false,
-    dragging: false,
-    touchZoom: false,
-    scrollWheelZoom: false,
-    doubleClickZoom: false,
-    boxZoom: false,
-    keyboard: false,
-    tap: false,
-    inertia: false
-  }).setView([20,0], 2);
+  <!-- Map -->
+  <div id="map"></div>
 
-  // Profesyonel görünümlü Dark Tile katmanı
-  const tiles = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', { 
-    attribution: '&copy; Stadia Maps',
-    maxZoom: 20,
-    errorTileUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
-  });
-  tiles.addTo(map);
+  <!-- Top menu -->
+  <div class="topbar" role="toolbar" aria-label="Santa Tracker Menu">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <!-- small svg santa hat -->
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="32" cy="32" r="30" fill="#ff4d4d"/>
+          <path d="M18 36c6 6 28 6 36 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="44" cy="20" r="6" fill="#fff"/>
+        </svg>
+      </div>
+      <h1>Santa Tracker</h1>
+    </div>
 
-  // Harita boyutunu zorlama (WebView için kritik)
-  function ensureMapSize() {
-    map.invalidateSize();
-  }
-  window.addEventListener('load', ()=>{ setTimeout(ensureMapSize, 350); setTimeout(ensureMapSize, 900); });
-  window.addEventListener('resize', ensureMapSize);
+    <div class="menu" role="navigation" aria-label="Main">
+      <button id="btnHome" class="active">Home</button>
+      <button id="btnRadar">Radar</button>
+      <button id="btnStats">Stats</button>
+      <button id="btnSettings">Settings</button>
+    </div>
 
-  // Santa DivIcon
-  const santaDiv = L.divIcon({
-    className: '',
-    html: '<div class="santa-divicon">🎅</div>',
-    iconSize: [64,64],
-    iconAnchor: [32,32]
-  });
+    <div class="controls">
+      <button id="playPauseBtn">Pause</button>
+      <button id="focusBtn">Focus</button>
+    </div>
+  </div>
 
-  // Gerçekçi rota (Saat dilimine uygun Doğu'dan Batı'ya ve Kuzey-Güney karışımı)
-  const cities = [
-    {lat:90, lng:0, city:'North Pole', tz:0, speed: 0.8},
-    {lat:-40.90, lng:174.88, city:'Wellington, NZ', tz:12, speed: 1.5},
-    {lat:-33.87, lng:151.21, city:'Sydney, Australia', tz:11, speed: 1.2},
-    {lat:35.68, lng:139.76, city:'Tokyo, Japan', tz:9, speed: 1.0},
-    {lat:31.23, lng:121.47, city:'Shanghai, China', tz:8, speed: 1.1},
-    {lat:28.61, lng:77.21, city:'New Delhi, India', tz:5.5, speed: 1.3},
-    {lat:55.75, lng:37.62, city:'Moscow, Russia', tz:3, speed: 1.0},
-    {lat:52.52, lng:13.40, city:'Berlin, Germany', tz:1, speed: 1.2},
-    {lat:51.51, lng:-0.13, city:'London, UK', tz:0, speed: 0.9},
-    {lat:40.71, lng:-74.01, city:'New York, USA', tz:-5, speed: 1.1},
-    {lat:34.05, lng:-118.24, city:'Los Angeles, USA', tz:-8, speed: 1.0},
-    {lat:21.31, lng:-157.86, city:'Honolulu, USA', tz:-10, speed: 1.4},
-    {lat:90, lng:0, city:'North Pole', tz:0, speed: 0.5} 
-  ];
+  <!-- Countdown -->
+  <div id="countdown" aria-live="polite">🎄 Loading...</div>
 
-  let currentIndex = 0;
-  const santaMarker = L.marker([cities[0].lat, cities[0].lng], { icon: santaDiv, interactive:false }).addTo(map);
+  <!-- Right-bottom panel (Stats / Settings dynamic) -->
+  <div class="panel" id="panel" aria-live="polite">
+    <h3 id="panelTitle">Overview</h3>
+    <div id="panelContent">
+      <div class="stat"><div class="small">Current city</div><div id="cityName">—</div></div>
+      <div class="stat"><div class="small">Local time</div><div id="localTime">—</div></div>
+      <div class="stat"><div class="small">Speed</div><div id="speedVal">—</div></div>
+      <div class="stat"><div class="small">Distance traveled</div><div id="distanceVal">0 km</div></div>
+      <div style="padding-top:8px"><small class="small">Radar intensity</small>
+        <div class="radar-toggle" style="margin-top:6px">
+          <input id="radarRange" type="range" min="50" max="400" value="180" />
+          <button id="radarOnOff">On</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-  // Marker'ın Harita Merkezi Takibini etkinleştir
-  // Bu, Noel Baba'nın asla ekrandan kaybolmamasını sağlar.
-  santaMarker.on('move', function(e) {
-    map.panTo(e.latlng, { animate: false, duration: 0 }); 
-  });
+  <!-- Radar overlay canvas/container -->
+  <div id="radarOverlay" aria-hidden="true"></div>
 
-  // --- 2. Animasyon Fonksiyonu ---
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+  /************************************************************************
+   * Professional Santa Tracker — Single-file app
+   * - WebView-friendly tiles (Carto)
+   * - DivIcon SVG santa face
+   * - Radar overlay that follows marker (doesn't rely on map panning)
+   * - Menu, Stats, Settings (basic)
+   * - Smooth interpolation between many cities
+   ************************************************************************/
 
-  function startSantaAnimation(startCity, endCity) {
-    // Uzaklığa ve hıza dayalı gerçekçi animasyon süresi hesaplama
-    const startLatLng = L.latLng(startCity.lat, startCity.lng);
-    const endLatLng = L.latLng(endCity.lat, endCity.lng);
-    const distance = startLatLng.distanceTo(endLatLng);
-    
-    // Hız faktörünü kullanarak süreyi ayarla (Örnek: 1000 km başına 10 saniye animasyon)
-    const baseDuration = 100000; // 100000 metre (100km)
-    const durationMs = Math.max(2000, (distance / baseDuration) * 1000 * (1/endCity.speed));
-    
-    let startTime = null;
-    
-    // Yeni durağa giderken haritayı uçuş efektiyle odakla
-    map.flyTo([endCity.lat, endCity.lng], Math.min(map.getMaxZoom(), 4), { duration: 2.5 });
+  // ----------------- Map init (fixed controls) -----------------
+  const map = L.map('map', {
+    zoomControl: false,
+    dragging: false,
+    touchZoom: false,
+    scrollWheelZoom: false,
+    doubleClickZoom: false,
+    boxZoom: false,
+    keyboard: false,
+    tap: false,
+    inertia: false,
+  }).setView([20, 0], 2);
 
-    function step(timestamp) {
-      if (!startTime) startTime = timestamp;
-      const elapsed = timestamp - startTime;
-      const progress = Math.min(1, elapsed / durationMs);
+  // WebView-friendly tile
+  const tiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+    subdomains: 'abcd',
+    maxZoom: 19
+  }).addTo(map);
 
-      const newLat = startCity.lat + (endCity.lat - startCity.lat) * progress;
-      const newLng = startCity.lng + (endCity.lng - startCity.lng) * progress;
+  // Force map to recalc size (WebView fixes)
+  function ensureMapSize(){ try{ map.invalidateSize(); }catch(e){} }
+  window.addEventListener('load', ()=>{ setTimeout(ensureMapSize,300); setTimeout(ensureMapSize,900); });
+  window.addEventListener('resize', ensureMapSize);
 
-      // 180 Boylam Çizgisi geçişini düzeltmek için L.latLng nesnesini sar
-      const wrappedLatLng = map.wrapLatLng(L.latLng(newLat, newLng));
-      santaMarker.setLatLng(wrappedLatLng);
+  // ----------------- Santa DivIcon (inline SVG for crispness) -----------------
+  const santaHTML = `
+    <div class="santa-divicon" aria-hidden="true">
+      <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <circle cx="32" cy="32" r="30" fill="#fff" opacity="0.06"/>
+        <path d="M20 36c8 8 24 8 32 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M42 22c0 2-2 4-6 4s-6-2-6-4c0-4 6-8 6-8s6 4 6 8z" fill="#ff4d4d"/>
+        <circle cx="32" cy="34" r="1.6" fill="#fff"/>
+      </svg>
+    </div>`;
+  const santaDivIcon = L.divIcon({ html: santaHTML, className:'', iconSize:[72,72], iconAnchor:[36,36] });
 
-      if (progress < 1) {
-        requestAnimationFrame(step);
-      } else {
-        // Varış: Marker Popup'ı göster
-        santaMarker.setPopupContent(`🎁 ${endCity.city} ziyaret edildi!`).openPopup();
-        
-        // Kısa bir bekleme (hediyeleri bırakma simülasyonu)
-        setTimeout(moveToNextCity, 4000); 
-      }
-    }
+  // ----------------- Extended city list (~50 important cities) -----------------
+  // (Ordered roughly along a Santa-style route)
+  const cities = [
+    {lat:90,lng:0,city:'North Pole',tz:0}, // start
+    {lat:69.6496,lng:18.9553,city:'Tromsø, Norway',tz:1},
+    {lat:64.1466,lng:-21.9426,city:'Reykjavik, Iceland',tz:0},
+    {lat:59.3293,lng:18.0686,city:'Stockholm, Sweden',tz:1},
+    {lat:60.1699,lng:24.9384,city:'Helsinki, Finland',tz:2},
+    {lat:55.7558,lng:37.6173,city:'Moscow, Russia',tz:3},
+    {lat:52.5200,lng:13.4050,city:'Berlin, Germany',tz:1},
+    {lat:50.1109,lng:8.6821,city:'Frankfurt, Germany',tz:1},
+    {lat:48.8566,lng:2.3522,city:'Paris, France',tz:1},
+    {lat:51.5074,lng:-0.1278,city:'London, UK',tz:0},
+    {lat:52.3676,lng:4.9041,city:'Amsterdam, Netherlands',tz:1},
+    {lat:41.9028,lng:12.4964,city:'Rome, Italy',tz:1},
+    {lat:40.4168,lng:-3.7038,city:'Madrid, Spain',tz:1},
+    {lat:38.7223,lng:-9.1393,city:'Lisbon, Portugal',tz:0},
+    {lat:50.4501,lng:30.5234,city:'Kyiv, Ukraine',tz:2},
+    {lat:30.0444,lng:31.2357,city:'Cairo, Egypt',tz:2},
+    {lat:19.4326,lng:-99.1332,city:'Mexico City, Mexico',tz:-6},
+    {lat:21.3069,lng:-157.8583,city:'Honolulu, USA',tz:-10},
+    {lat:34.0522,lng:-118.2437,city:'Los Angeles, USA',tz:-8},
+    {lat:40.7128,lng:-74.0060,city:'New York, USA',tz:-5},
+    {lat:43.6532,lng:-79.3832,city:'Toronto, Canada',tz:-5},
+    {lat:45.4215,lng:-75.6972,city:'Ottawa, Canada',tz:-5},
+    {lat:37.7749,lng:-122.4194,city:'San Francisco, USA',tz:-8},
+    {lat:25.2048,lng:55.2708,city:'Dubai, UAE',tz:4},
+    {lat:28.6139,lng:77.2090,city:'New Delhi, India',tz:5.5},
+    {lat:31.2304,lng:121.4737,city:'Shanghai, China',tz:8},
+    {lat:35.6895,lng:139.6917,city:'Tokyo, Japan',tz:9},
+    {lat:22.3964,lng:114.1095,city:'Hong Kong',tz:8},
+    {lat:13.7563,lng:100.5018,city:'Bangkok, Thailand',tz:7},
+    {lat:1.3521,lng:103.8198,city:'Singapore',tz:8},
+    {lat:-33.8688,lng:151.2093,city:'Sydney, Australia',tz:10},
+    {lat:-36.8485,lng:174.7633,city:'Auckland, NZ',tz:13},
+    {lat:-34.6037,lng:-58.3816,city:'Buenos Aires, Argentina',tz:-3},
+    {lat:-23.5505,lng:-46.6333,city:'Sao Paulo, Brazil',tz:-3},
+    {lat:6.5244,lng:3.3792,city:'Lagos, Nigeria',tz:1},
+    {lat:-1.2921,lng:36.8219,city:'Nairobi, Kenya',tz:3},
+    {lat:55.9533,lng:-3.1883,city:'Edinburgh, UK',tz:0},
+    {lat:60.4720,lng:8.4689,city:'Oslo, Norway',tz:1},
+    {lat:64.9631,lng:-19.0208,city:'Iceland (N)',tz:0},
+    {lat:90,lng:0,city:'North Pole',tz:0} // end loop
+  ];
 
-    requestAnimationFrame(step);
-  }
+  // add a few markers (optional subtle markers) - invisible by default (keeps DOM light)
+  // But we will only use the DivIcon moving marker to avoid image problems
+  let currentIndex = 0;
+  const santaMarker = L.marker([cities[0].lat, cities[0].lng], { icon: santaDivIcon, interactive:false }).addTo(map);
 
-  function moveToNextCity() {
-    // Bir sonraki durak indeksini ayarla
-    currentIndex = (currentIndex + 1) % cities.length;
-    const nextIndex = (currentIndex + 1) % cities.length;
+  // radar overlay element (absolute) that will follow the marker
+  const radarOverlay = document.getElementById('radarOverlay');
+  radarOverlay.style.width = '100%';
+  radarOverlay.style.height = '100%';
 
-    const startCity = cities[currentIndex];
-    const endCity = cities[nextIndex];
-    
-    // Sadece haritanın ortasından geçen animasyonu başlat
-    startSantaAnimation(startCity, endCity);
-  }
+  // helper: convert latlng to container point and position radar pulses
+  function latLngToOverlayPoint(latlng){
+    const pt = map.latLngToContainerPoint(latlng);
+    return { x: Math.round(pt.x), y: Math.round(pt.y) };
+  }
 
-  // --- 3. Görsel ve Başlangıç ---
-  
-  // Harita yüklenince animasyonu başlat
-  tiles.on('load', ()=>{
-    setTimeout(ensureMapSize, 200);
-    // İlk durağa hareket (0 -> 1)
-    startSantaAnimation(cities[0], cities[1]);
-  });
+  // create radar pulse
+  let radarEnabled = true;
+  let radarPulseEl = null;
+  function createRadarPulse(radius){
+    if(radarPulseEl) radarPulseEl.remove();
+    radarPulseEl = document.createElement('div');
+    radarPulseEl.className = 'radarPulse';
+    radarPulseEl.style.width = (radius*2) + 'px';
+    radarPulseEl.style.height = (radius*2) + 'px';
+    radarPulseEl.style.left = '0px';
+    radarPulseEl.style.top = '0px';
+    radarPulseEl.style.marginLeft = (-radius) + 'px';
+    radarPulseEl.style.marginTop = (-radius) + 'px';
+    radarPulseEl.style.borderRadius = '50%';
+    radarPulseEl.style.animation = 'radarAnim 2.4s infinite';
+    radarPulseEl.style.border = '2px solid rgba(255,77,77,0.95)';
+    radarPulseEl.style.boxShadow = '0 0 30px rgba(255,77,77,0.12)';
+    // keyframes injected once
+    if(!document.getElementById('radarKeyframes')){
+      const style = document.createElement('style');
+      style.id = 'radarKeyframes';
+      style.innerHTML = `
+        @keyframes radarAnim {
+          0% { transform: scale(0.2); opacity:0.9; }
+          70% { transform: scale(1); opacity:0.25; }
+          100% { transform: scale(1.4); opacity:0; }
+        }`;
+      document.head.appendChild(style);
+    }
+    radarOverlay.appendChild(radarPulseEl);
+    return radarPulseEl;
+  }
 
+  // initial radar
+  let radarRadius = parseInt(document.getElementById('radarRange').value || 180,10);
+  createRadarPulse(radarRadius);
 
-  // --- 4. Gündüz/Gece Görseli (Haritanın Parlaklığını Ayarlar) ---
-  function applyDayNightVisual(){
-    const currentCity = cities[currentIndex];
-    try{
-      const utcHour = new Date().getUTCHours();
-      // UTC saati + Saat Dilimi farkı
-      const localHour = (utcHour + (currentCity.tz || 0) + 24)%24; 
-      const mapEl = document.getElementById('map');
-      if(localHour >= 18 || localHour < 6){ // Akşam 6'dan Sabah 6'ya kadar gece
-        mapEl.style.filter = 'brightness(0.5)';
-        mapEl.style.transition = 'filter 2s';
-      } else {
-        mapEl.style.filter = 'brightness(1)';
-        mapEl.style.transition = 'filter 2s';
-      }
-    }catch(e){}
-  }
-  // Periyodik olarak güncelle (gece/gündüz geçişi)
-  setInterval(applyDayNightVisual, 5000); // 5 saniyede bir kontrol et
+  // function to place radar overlay at marker
+  function updateRadarPosition(latlng){
+    if(!radarEnabled || !radarPulseEl) { if(radarPulseEl) radarPulseEl.style.display='none'; return; }
+    radarPulseEl.style.display='block';
+    const p = latLngToOverlayPoint(latlng);
+    radarPulseEl.style.left = p.x + 'px';
+    radarPulseEl.style.top = p.y + 'px';
+  }
 
+  // ----------------- Animation engine (smooth) -----------------
+  let isPaused = false;
+  let totalDistance = 0; // meters
+  const R = 6371000; // earth radius
 
-  // --- 5. Countdown ve Snow (Aynı Kaldı) ---
-  function updateCountdown(){
-    const now = new Date();
-    let year = now.getFullYear();
-    let xmas = new Date(`December 25, ${year} 00:00:00`);
-    if(now > xmas) xmas = new Date(`December 25, ${year+1} 00:00:00`);
-    const diff = xmas - now;
-    const days = Math.floor(diff/(1000*60*60*24));
-    const hours = Math.floor((diff%(1000*60*60*24))/(1000*60*60));
-    const mins  = Math.floor((diff%(1000*60*60))/(1000*60));
-    const secs  = Math.floor((diff%(1000*60))/1000);
-    document.getElementById('countdown').innerText = `🎄 Christmas in ${days}d ${hours}h ${mins}m ${secs}s`;
-  }
-  setInterval(updateCountdown, 1000);
-  updateCountdown();
+  function haversine(a,b){
+    // a,b: {lat,lng}
+    const toRad = v => v * Math.PI / 180;
+    const dLat = toRad(b.lat - a.lat);
+    const dLon = toRad(b.lng - a.lng);
+    const lat1 = toRad(a.lat);
+    const lat2 = toRad(b.lat);
+    const sinDLat = Math.sin(dLat/2);
+    const sinDLon = Math.sin(dLon/2);
+    const A = sinDLat*sinDLat + Math.cos(lat1)*Math.cos(lat2)*sinDLon*sinDLon;
+    const C = 2 * Math.atan2(Math.sqrt(A), Math.sqrt(1-A));
+    return R * C;
+  }
 
-  function spawnSnow(){
-    const s = document.createElement('div');
-    s.className = 'snowflake';
-    s.style.left = (Math.random()*100) + 'vw';
-    s.style.fontSize = (8 + Math.random()*12) + 'px';
-    s.style.animationDuration = (4 + Math.random()*6) + 's';
-    s.innerText = '❄';
-    document.body.appendChild(s);
-    setTimeout(()=> s.remove(), 11000);
-  }
-  setInterval(spawnSnow, 180);
+  function animateBetween(startCity, endCity){
+    if(isPaused) return;
+    const steps = 240; // more steps = smoother
+    const distance = haversine(startCity, endCity);
+    const baseSpeed = 300000; // meters per second baseline for animation pacing
+    // compute duration using city speed factor (higher speed -> shorter duration)
+    const durationMs = Math.max(2500, (distance / baseSpeed) * 1000 / (endCity.speed || 1));
+    const stepMs = Math.max(12, Math.floor(durationMs / steps));
+    let i = 0;
 
-  window.__santaTrackerReady = true;
-  </script>
+    // show next target in stats
+    updateStats(endCity, distance);
+
+    function step(){
+      if(isPaused) return;
+      i++;
+      const t = i / steps;
+      const lat = startCity.lat + (endCity.lat - startCity.lat) * t;
+      const lng = startCity.lng + (endCity.lng - startCity.lng) * t;
+      santaMarker.setLatLng([lat,lng]);
+
+      // update radar overlay + stats
+      updateRadarPosition({lat,lng});
+      updateLocalTimeAndSpeed(endCity, distance * t, distance, durationMs * t);
+
+      if(i < steps){
+        setTimeout(step, stepMs);
+      } else {
+        // arrived
+        totalDistance += distance;
+        document.getElementById('distanceVal').innerText = Math.round(totalDistance/1000) + ' km';
+        // brief popup effect
+        showArrived(endCity);
+        // small wait
+        setTimeout(()=> moveToNext(), 1400);
+      }
+    }
+    step();
+  }
+
+  function moveToNext(){
+    currentIndex = (currentIndex + 1) % cities.length;
+    const nextIndex = (currentIndex + 1) % cities.length;
+    animateBetween(cities[currentIndex], cities[nextIndex]);
+  }
+
+  // Start after tiles loaded
+  tiles.on('load', ()=>{
+    setTimeout(ensureMapSize, 200);
+    // place marker initially and update radar
+    santaMarker.setLatLng([cities[0].lat, cities[0].lng]);
+    updateRadarPosition([cities[0].lat, cities[0].lng]);
+    // small delay then start
+    setTimeout(()=> animateBetween(cities[0], cities[1]), 600);
+  });
+
+  // ---------------- UI helpers, stats, settings ----------------
+  const btnHome = document.getElementById('btnHome');
+  const btnRadar = document.getElementById('btnRadar');
+  const btnStats = document.getElementById('btnStats');
+  const btnSettings = document.getElementById('btnSettings');
+  const panel = document.getElementById('panel');
+  const panelTitle = document.getElementById('panelTitle');
+  const panelContent = document.getElementById('panelContent');
+  const playPauseBtn = document.getElementById('playPauseBtn');
+  const focusBtn = document.getElementById('focusBtn');
+
+  btnHome.onclick = ()=> { setActive(btnHome); panelTitle.innerText='Overview'; panelContent.style.display='block'; }
+  btnRadar.onclick = ()=> { setActive(btnRadar); panelTitle.innerText='Radar'; panelContent.style.display='block'; }
+  btnStats.onclick = ()=> { setActive(btnStats); panelTitle.innerText='Stats'; panelContent.style.display='block'; }
+  btnSettings.onclick = ()=> { setActive(btnSettings); panelTitle.innerText='Settings'; panelContent.style.display='block'; }
+
+  function setActive(el){
+    [btnHome,btnRadar,btnStats,btnSettings].forEach(b=>b.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  // play/pause control
+  playPauseBtn.onclick = ()=>{
+    isPaused = !isPaused;
+    playPauseBtn.innerText = isPaused ? 'Play' : 'Pause';
+    if(!isPaused){
+      // resume: animate current segment from current position to next
+      // We'll compute current marker pos and continue
+      const pos = santaMarker.getLatLng();
+      // set current start to pos, end is next city
+      const nextIndex = (currentIndex + 1) % cities.length;
+      const virtualStart = {lat: pos.lat, lng: pos.lng};
+      const endCity = cities[nextIndex];
+      animateBetween(virtualStart, endCity);
+    }
+  };
+
+  // focus button: center map view on world (no pan), but highlight marker
+  focusBtn.onclick = ()=>{
+    // small visual flash on marker: scale up then back
+    const el = santaMarker.getElement();
+    if(el){
+      el.style.transition = 'transform 220ms ease';
+      el.style.transform = 'scale(1.18)';
+      setTimeout(()=> el.style.transform = '', 300);
+    }
+  };
+
+  // UI: radar range slider + on/off
+  const radarRange = document.getElementById('radarRange');
+  const radarOnOff = document.getElementById('radarOnOff');
+  radarRange.addEventListener('input', ()=> {
+    radarRadius = parseInt(radarRange.value,10);
+    createRadarPulse(radarRadius);
+  });
+  radarOnOff.addEventListener('click', ()=> {
+    radarEnabled = !radarEnabled;
+    radarOnOff.innerText = radarEnabled ? 'On' : 'Off';
+    if(!radarEnabled && radarPulseEl) radarPulseEl.style.display = 'none';
+    else if(radarPulseEl) radarPulseEl.style.display = 'block';
+  });
+
+  // stats update helpers
+  function updateStats(targetCity, distance){
+    document.getElementById('cityName').innerText = targetCity.city;
+    document.getElementById('speedVal').innerText = (targetCity.speed || 1) + 'x';
+  }
+  function updateLocalTimeAndSpeed(city, traveled, totalDistance, elapsedMs){
+    // local time
+    const utcHour = new Date().getUTCHours();
+    const localHour = Math.floor((utcHour + (city.tz || 0) + 24) % 24);
+    const hh = (localHour < 10 ? '0'+localHour : localHour);
+    document.getElementById('localTime').innerText = hh + ':00';
+    // progress-based speed (visual)
+    const pct = Math.min(1, totalDistance ? (traveled/totalDistance) : 0);
+    const speedText = Math.round((pct * 100)) + '%';
+    // show in panel
+    // optional field
+  }
+
+  // arrival popup visual
+  function showArrived(city){
+    // small toast in panel
+    const old = document.getElementById('arriveToast');
+    if(old) old.remove();
+    const t = document.createElement('div');
+    t.id = 'arriveToast';
+    t.style.position='absolute';
+    t.style.left='12px';
+    t.style.top='12px';
+    t.style.background='linear-gradient(90deg,#ff9f9f,#ff4d4d)';
+    t.style.padding='8px 12px';
+    t.style.borderRadius='10px';
+    t.style.boxShadow='0 6px 18px rgba(0,0,0,0.4)';
+    t.style.zIndex = 10000;
+    t.innerText = `🎁 ${city.city} — Santa dropped gifts!`;
+    document.body.appendChild(t);
+    setTimeout(()=> t.remove(), 2600);
+  }
+
+  // ----------------- Countdown + Snow (lightweight) -----------------
+  function updateCountdown(){
+    const now = new Date();
+    let year = now.getFullYear();
+    let xmas = new Date(`December 25, ${year} 00:00:00`);
+    if(now > xmas) xmas = new Date(`December 25, ${year+1} 00:00:00`);
+    const diff = xmas - now;
+    const days = Math.floor(diff/(1000*60*60*24));
+    const hours = Math.floor((diff%(1000*60*60*24))/(1000*60*60));
+    const mins  = Math.floor((diff%(1000*60*60))/(1000*60));
+    const secs  = Math.floor((diff%(1000*60))/1000);
+    document.getElementById('countdown').innerText = `🎄 Christmas in ${days}d ${hours}h ${mins}m ${secs}s`;
+  }
+  setInterval(updateCountdown, 1000);
+  updateCountdown();
+
+  function spawnSnow(){
+    const s = document.createElement('div');
+    s.className = 'snowflake';
+    s.style.left = Math.random()*100 + 'vw';
+    s.style.fontSize = (8 + Math.random()*12) + 'px';
+    s.style.animationDuration = (4 + Math.random()*6) + 's';
+    s.innerText = '❄';
+    document.body.appendChild(s);
+    setTimeout(()=> s.remove(), 11000);
+  }
+  setInterval(spawnSnow, 180);
+
+  // ensure radar follows marker on each marker setLatLng
+  const originalSetLatLng = L.Marker.prototype.setLatLng;
+  L.Marker.prototype.setLatLng = function(latlng){
+    originalSetLatLng.call(this, latlng);
+    try{ updateRadarPosition(latlng); }catch(e){}
+    return this;
+  };
+
+  // expose some controls for debugging
+  window.__santa = {
+    pause: ()=>{ isPaused=true; },
+    play: ()=>{ if(isPaused){ isPaused=false; animateBetween(santaMarker.getLatLng(), cities[(currentIndex+1)%cities.length]); } },
+    goto: (i)=>{ if(i>=0 && i < cities.length){ santaMarker.setLatLng([cities[i].lat, cities[i].lng]); currentIndex = i; updateRadarPosition(cities[i]); } }
+  };
+
+  // Accessibility: keyboard shortcuts (useful for desktop testing)
+  window.addEventListener('keydown', (e)=>{
+    if(e.key === ' ') { playPauseBtn.click(); e.preventDefault(); }
+    if(e.key === 'r') { radarOnOff.click(); }
+  });
+
+  </script>
 </body>
 </html>
