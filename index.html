@@ -97,9 +97,9 @@ map.whenReady(() => {
 });
 
 /* ----------------- Santa Icon ----------------- */
-// Updated HTTPS icon to avoid broken image
+// Inline base64 Santa icon (artık çalışır)
 const santaIcon = L.icon({
-    iconUrl:'https://upload.wikimedia.org/wikipedia/commons/1/12/Santa_Claus_icon.png',
+    iconUrl:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAABfUlEQVRoge2YwQ2DMBBFT4XG0iEFyAAYO1NoTgEFOvYcTtYpWZyoROnl2I+GocvCwMJqP8FjIq3ZkhmYqC/1p6ScDJDHgN3hHYJkFX9GmAZAh4uUkc8AyJNwAtCkK5dN+AUV/nQO2iG9Rz1BOLi0i1xZVxZsAqgqpmu3lUyhBkaCkUANqNJG2iRkqBZpVEXWZk6iMNCmX5ZUkJ7+M8DVrL3tYfAcCu2a+zqQKkYtgi64GQXv99Rxxk4NfgQ1JZLqMZ0E18sRM3svGbs5wdgI8wDLMJ+7J1ug/6qXyK0lJK5rIp2bdwnO7RSCyl0tR3U7w3cH7yHytD9pzVwzqAkfB+BrWDSCewBoFQSk4AGlJZbVDCQv4AbkA+P2ztS9I7gAAAABJRU5ErkJggg==',
     iconSize:[50,50],
     className:'santa-icon'
 });
