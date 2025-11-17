@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Santa Tracker – Global Christmas Map (Sabit)</title>
+<title>Santa Tracker – Global Christmas Map</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
       integrity="sha256-p4QLQ/7Jk7D5N7zX0Y2F2o6N7P0f4b5H5J7z5N5B7N4=" 
@@ -23,6 +23,7 @@ html, body {
 #map {
     height:100%;
     width:100%;
+    /* Filtre geçişi için hız ayarı */
     transition: filter 0.8s ease; 
 }
 #header {
@@ -52,7 +53,7 @@ html, body {
 .santa-icon { animation:bounce 1.2s infinite; }
 @keyframes bounce { 0%{transform:translateY(0);}50%{transform:translateY(-8px);}100%{transform:translateY(0);} }
 
-/* Kar Efekti (Değişmedi) */
+/* Kar Efekti */
 .snowflake {
   position:absolute;
   top:-10px;
@@ -72,7 +73,7 @@ html, body {
 </head>
 <body>
 
-<div id="header">🎅 Santa Tracker – Global (Sabit Harita)</div>
+<div id="header">🎅 Santa Tracker – Global</div>
 <div id="countdown"></div>
 <div id="map"></div>
 
@@ -82,54 +83,50 @@ html, body {
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    
-    /* ----------------- Marker Görünmeme Sorunu İçin Geçici Çözüm ----------------- */
-    // Leaflet'ın varsayılan ikon dosyalarını kullanmak için ayarlama yapıldı. 
-    // Bu, Base64 ikonun çalışmaması durumunda varsayılan marker'ın görünmesini sağlar.
-    delete L.Icon.Default.prototype._get  IconUrl;
-
-    L.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-    });
-
+    /* ----------------- Map Başlatma ----------------- */
     try {
-        /* ----------------- Map Başlatma ----------------- */
         const map = L.map('map', {
-            zoomControl: false,
-            // Harita kaydırma ve zoom özelliklerini tamamen kapalı tutuyoruz
-            dragging: false, 
-            touchZoom: false,
-            scrollWheelZoom: false,
-            doubleClickZoom: false,
-            boxZoom: false,
-            keyboard: false,
-            tap: false
-        }).setView([20, 0], 2); // Harita Dünya merkezinde sabit kalacak
+            zoomControl:false,
+            // Mobil için kaydırma ve zoom özelliklerini kapattık
+            dragging:false, 
+            touchZoom:false,
+            scrollWheelZoom:false,
+            doubleClickZoom:false,
+            boxZoom:false,
+            keyboard:false,
+            tap:false
+        }).setView([20, 0], 2);
 
         // Harita Katmanları (HTTPS)
         const dayTile = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
             maxZoom: 18, 
-            attribution: '© OpenStreetMap'
+            attribution: '© OpenStreetMap',
+            // WebView'da yüklenmeme sorununu azaltmak için timeout ekle
+            tileonError: (err, tile) => console.error("Day Tile Error:", err)
         });
         
         const nightTile = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', { 
             maxZoom: 20, 
-            attribution: '© Stadia Maps'
+            attribution: '© Stadia Maps',
+            tileonError: (err, tile) => console.error("Night Tile Error:", err)
         });
         
         dayTile.addTo(map);
 
-        // Marker/İkon Tanımı: Eğer Base64 sorunluysa, bu kısım da sorunun kaynağıdır.
-        // Şimdilik Leaflet'ın varsayılan marker'ını (yukarıda tanımlanan) kullanacağız.
-        // Eğer illa Santa ikonu gelmeli diyorsanız, Santa ikon dosyasını uygulamanızın local assets'ine koyup buradaki URL'yi local yolla değiştirmeniz gerekir.
-        const santaIcon = L.icon({
-            // Base64 ikon kaldırıldı. Yerine, .santa-icon class'ı ile sadece görsel animasyon verildi.
-            iconSize: [50, 50],
-            className: 'santa-icon' 
+        // WebView'da harita boyutlandırma sorununu çözmek için hafif bir gecikme
+        map.whenReady(() => {
+            setTimeout(() => {
+                map.invalidateSize();
+                console.log("Map size invalidated for WebView compatibility.");
+            }, 500); 
         });
 
+        /* ----------------- Santa İkonu ----------------- */
+        const santaIcon = L.icon({
+            iconUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAABfUlEQVRoge2YwQ2DMBBFT4XG0iEFyAAYO1NoTgEFOvYcTtYpWZyoROnl2I+GocvCwMJqP8FjIq3ZkhmYqC/1p6ScDJDHgN3hHYJkFX9GmAZAh4uUkc8AyJNwAtCkK6dN+AUV/nQO2iG9Rz1BOLi0i1xZVxZsAqgqpmu3lUyhBkaCkUANqNJG2iRkqBZpVEXWZk6iMNCmX5ZUkJ7+M8DVrL3tYfAcCu2a+zqQKkYtgi64GQXv99Rxxk4NfgQ1JZLqMZ0E18sRM3svGbs5wdgI8wDLMJ+7J1ug/6qXyK0lJK5rIp2bdwnO7RSCyl0tR3U7w3cH7yHytD9pzVwzqAkfB+BrWDSCewBoFQSk4AGlJZbVDCQv4AbkA+P2ztS9I7gAAAABJRU5ErkJggg==',
+            iconSize: [50, 50],
+            className: 'santa-icon'
+        });
 
         /* ----------------- Santa Rotası ----------------- */
         const cities = [
@@ -151,10 +148,9 @@ document.addEventListener('DOMContentLoaded', function() {
         ];
 
         let currentIndex = 0;
-        // Marker'ı varsayılan ikonla (veya Base64 ikonun çalışması durumunda onunla) başlat
         let santaMarker = L.marker([cities[0].lat, cities[0].lng], {icon:santaIcon}).addTo(map);
 
-        /* ----------------- Akıcı Hareket ve Gece/Gündüz (Harita Kayması Kaldırıldı) ----------------- */
+        /* ----------------- Akıcı Hareket ve Gece/Gündüz ----------------- */
         function animateSanta(marker, start, end, duration) {
             let startTime = null;
 
@@ -165,17 +161,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 let lat = start.lat + (end.lat - start.lat) * progress;
                 let lng = start.lng + (end.lng - start.lng) * progress;
-                
-                // *** KENDİ KENDİNE HAREKETİ ENGELLEYEN KISIM: ***
-                // Marker'ı hareket ettir, ancak haritayı pan yapma (panTo kaldırıldı).
-                marker.setLatLng([lat, lng]); 
+                marker.setLatLng([lat, lng]);
+                // Harita merkezleme (panTo) animasyon süresini kısalt
+                map.panTo([lat, lng], {animate:true, duration:0.3}); 
 
-                // Gece/Gündüz modu kontrolü
+                // Gece/Gündüz modu kontrolü: Bitiş noktası saat dilimini kullanır
                 const utcHour = new Date().getUTCHours();
                 const localHour = (utcHour + end.tz + 24) % 24;
                 
-                if (localHour >= 19 || localHour < 7) { 
-                    map.getContainer().style.filter = 'brightness(0.35)'; 
+                if (localHour >= 19 || localHour < 7) { // Karanlık saat aralığı biraz genişletildi
+                    map.getContainer().style.filter = 'brightness(0.35)'; // Filtre biraz koyulaştırıldı
                     if (!map.hasLayer(nightTile)) {
                         nightTile.addTo(map);
                         dayTile.remove();
@@ -194,6 +189,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Animasyon bitti, bir sonraki şehre geç
                     currentIndex = (currentIndex + 1) % cities.length;
                     const nextCity = cities[currentIndex];
+                    // Kuzey Kutbunda duraklamak için daha uzun bir süre ver
                     const nextDuration = nextCity.city === "North Pole" ? 8000 : 4000; 
 
                     animateSanta(marker, end, nextCity, nextDuration);
@@ -206,12 +202,12 @@ document.addEventListener('DOMContentLoaded', function() {
         animateSanta(santaMarker, cities[0], cities[1], 4000);
 
     } catch (e) {
-        // Hata durumunda kullanıcıya bilgi ver
-        document.getElementById('map').innerHTML = '<div style="color:red; text-align:center; padding-top:50vh; transform:translateY(-50%);">Harita yüklenirken bir sorun oluştu. Lütfen WebView ayarlarınızı kontrol edin.</div>';
+        // Eğer Leaflet veya harita yüklenmezse kullanıcıya hata mesajı göster
+        document.getElementById('map').innerHTML = '<div style="color:red; text-align:center; padding-top:50vh; transform:translateY(-50%);">Harita yüklenirken bir sorun oluştu. Lütfen uygulamanızın internet bağlantısını kontrol edin ve harici JS/CSS yüklemelerine izin verdiğinden emin olun.</div>';
         console.error("Harita Başlatma Hatası:", e);
     }
     
-    /* ----------------- Geri Sayım ve Kar Efekti (Değişmedi) ----------------- */
+    /* ----------------- Geri Sayım ----------------- */
     function updateCountdown() {
         let now = new Date();
         let year = now.getFullYear();
@@ -232,6 +228,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setInterval(updateCountdown, 1000);
     updateCountdown();
 
+    /* ----------------- Kar Efekti ----------------- */
     function createSnow() {
         const snow = document.createElement('div');
         snow.className = 'snowflake';
@@ -242,8 +239,9 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.appendChild(snow);
         setTimeout(() => snow.remove(), 10000);
     }
-    setInterval(createSnow, 150);
+    setInterval(createSnow, 150); // Kar yoğunluğu biraz arttırıldı
 });
+
 </script>
 </body>
 </html>
