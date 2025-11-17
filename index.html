@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Santa Tracker – Live Christmas Map</title>
+<title>Santa Tracker – Global Christmas Map</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -29,14 +29,24 @@ html, body { margin:0; padding:0; height:100%; background:#1a1a1a; font-family: 
 </head>
 <body>
 
-<div id="header">🎅 Santa Tracker – Live</div>
+<div id="header">🎅 Santa Tracker – Global</div>
 <div id="countdown"></div>
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 /* ----------------- Map ----------------- */
-const map = L.map('map', { zoomControl:false }).setView([20,0], 2);
+const map = L.map('map', {
+    zoomControl:false,
+    dragging:false,
+    touchZoom:false,
+    scrollWheelZoom:false,
+    doubleClickZoom:false,
+    boxZoom:false,
+    keyboard:false,
+    tap:false
+}).setView([20,0],2);
+
 const dayTile = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:18, attribution:'© OpenStreetMap' });
 const nightTile = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', { maxZoom:20, attribution:'© Stadia Maps' });
 dayTile.addTo(map);
@@ -44,55 +54,64 @@ dayTile.addTo(map);
 /* ----------------- Santa Icon ----------------- */
 const santaIcon = L.icon({ iconUrl:'https://i.imgur.com/9QjvZ2M.png', iconSize:[80,80], className:'santa-icon' });
 
-/* ----------------- Cities with Timezone ----------------- */
+/* ----------------- Major Cities with Timezones ----------------- */
 const cities = [
-  {lat:90, lng:0, city:"North Pole", tz:0},
-  {lat:59.95, lng:30.33, city:"St. Petersburg, Russia", tz:3},
-  {lat:48.85, lng:2.35, city:"Paris, France", tz:1},
-  {lat:52.52, lng:13.40, city:"Berlin, Germany", tz:1},
-  {lat:51.51, lng:-0.13, city:"London, UK", tz:0},
-  {lat:40.71, lng:-74.00, city:"New York, USA", tz:-5},
-  {lat:34.05, lng:-118.24, city:"Los Angeles, USA", tz:-8},
-  {lat:35.68, lng:139.76, city:"Tokyo, Japan", tz:9},
-  {lat:55.75, lng:37.62, city:"Moscow, Russia", tz:3},
-  {lat:90, lng:0, city:"North Pole", tz:0}
+  {lat:90,lng:0,city:"North Pole",tz:0},
+  {lat:59.95,lng:30.33,city:"St. Petersburg, Russia",tz:3},
+  {lat:48.85,lng:2.35,city:"Paris, France",tz:1},
+  {lat:52.52,lng:13.40,city:"Berlin, Germany",tz:1},
+  {lat:51.51,lng:-0.13,city:"London, UK",tz:0},
+  {lat:40.71,lng:-74.00,city:"New York, USA",tz:-5},
+  {lat:34.05,lng:-118.24,city:"Los Angeles, USA",tz:-8},
+  {lat:35.68,lng:139.76,city:"Tokyo, Japan",tz:9},
+  {lat:55.75,lng:37.62,city:"Moscow, Russia",tz:3},
+  {lat:-33.87,lng:151.21,city:"Sydney, Australia",tz:10},
+  {lat:19.43,lng:-99.13,city:"Mexico City, Mexico",tz:-6},
+  {lat:1.29,lng:103.85,city:"Singapore",tz:8},
+  {lat:39.90,lng:116.40,city:"Beijing, China",tz:8},
+  {lat:-23.55,lng:-46.63,city:"Sao Paulo, Brazil",tz:-3},
+  {lat:90,lng:0,city:"North Pole",tz:0}
 ];
 
 let currentIndex = 0;
 let santaMarker = L.marker([cities[0].lat, cities[0].lng], {icon:santaIcon}).addTo(map);
 
-/* ----------------- Smooth Movement with Realistic Time ----------------- */
-function animateSanta(marker, start, end, duration){
-    let startTime = null;
+/* ----------------- Smooth Movement ----------------- */
+function animateSanta(marker,start,end,duration){
+    let startTime=null;
 
     function step(timestamp){
-        if(!startTime) startTime = timestamp;
-        let progress = (timestamp - startTime) / duration;
+        if(!startTime) startTime=timestamp;
+        let progress=(timestamp-startTime)/duration;
         if(progress>1) progress=1;
 
-        let lat = start.lat + (end.lat - start.lat) * progress;
-        let lng = start.lng + (end.lng - start.lng) * progress;
+        let lat = start.lat + (end.lat-start.lat)*progress;
+        let lng = start.lng + (end.lng-start.lng)*progress;
         marker.setLatLng([lat,lng]);
         map.panTo([lat,lng], {animate:true, duration:0.5});
 
         // Gece/Gündüz modu
         const utcHour = new Date().getUTCHours();
         const localHour = (utcHour + end.tz + 24)%24;
-        if(localHour>=18 || localHour<6){ map.getContainer().style.filter='brightness(0.4)'; nightTile.addTo(map); dayTile.remove(); }
-        else { map.getContainer().style.filter='brightness(1)'; dayTile.addTo(map); nightTile.remove(); }
+        if(localHour>=18 || localHour<6){
+            map.getContainer().style.filter='brightness(0.4)';
+            nightTile.addTo(map); dayTile.remove();
+        } else {
+            map.getContainer().style.filter='brightness(1)';
+            dayTile.addTo(map); nightTile.remove();
+        }
 
         if(progress<1){
             window.requestAnimationFrame(step);
         } else {
             currentIndex = (currentIndex +1) % cities.length;
-            animateSanta(marker, end, cities[currentIndex], 4000);
+            animateSanta(marker,end,cities[currentIndex],4000);
         }
     }
-
     window.requestAnimationFrame(step);
 }
 
-animateSanta(santaMarker, cities[0], cities[1], 4000);
+animateSanta(santaMarker,cities[0],cities[1],4000);
 
 /* ----------------- Countdown ----------------- */
 function updateCountdown(){
