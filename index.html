@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
 <style>
-html, body { margin:0; padding:0; height:100%; background:#1a1a1a; font-family: Arial, sans-serif; }
+html, body { margin:0; padding:0; height:100%; overflow:hidden; background:#1a1a1a; font-family: Arial, sans-serif; }
 #map { height:100%; width:100%; transition: filter 1s ease; }
 #header { position:absolute; top:10px; width:100%; text-align:center; z-index:9999; color:white; font-size:22px; font-weight:bold; text-shadow:2px 2px 4px #000; }
 #countdown { position:absolute; top:45px; width:100%; text-align:center; z-index:9999; color:#FFD700; font-size:18px; font-weight:bold; text-shadow:1px 1px 3px #000; }
@@ -47,14 +47,21 @@ const map = L.map('map', {
     tap:false
 }).setView([20,0],2);
 
+// Tile layers
 const dayTile = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:18, attribution:'© OpenStreetMap' });
 const nightTile = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', { maxZoom:20, attribution:'© Stadia Maps' });
 dayTile.addTo(map);
 
+// Invalidate size after loading to fix mobile issues
+map.whenReady(() => {
+    map.invalidateSize(true);
+    setTimeout(()=>map.invalidateSize(true),500);
+});
+
 /* ----------------- Santa Icon ----------------- */
 const santaIcon = L.icon({ iconUrl:'https://i.imgur.com/9QjvZ2M.png', iconSize:[80,80], className:'santa-icon' });
 
-/* ----------------- Extended Realistic Route ----------------- */
+/* ----------------- Realistic Santa Route ----------------- */
 const cities = [
   {lat:90,lng:0,city:"North Pole",tz:0},
   {lat:78.22,lng:-73.57,city:"Alert, Canada",tz:-5},
@@ -111,7 +118,8 @@ function animateSanta(marker,start,end,duration){
     window.requestAnimationFrame(step);
 }
 
-animateSanta(santaMarker,cities[0],cities[1],4000);
+// Start animation after map tiles loaded
+dayTile.on('load', ()=>animateSanta(santaMarker,cities[0],cities[1],4000));
 
 /* ----------------- Countdown ----------------- */
 function updateCountdown(){
