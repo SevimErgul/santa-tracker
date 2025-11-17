@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Santa Tracker – Global Map</title>
+<title>Santa Tracker – Global Christmas Map</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -15,26 +15,49 @@ html, body {
     width:100%;
     overflow:hidden;
     background:#1a1a1a;
+    font-family: Arial, sans-serif;
 }
 #map {
     height:100%;
     width:100%;
+    transition: filter 1s ease;
 }
-#header, #countdown {
+#header {
     position:absolute;
+    top:10px;
     width:100%;
     text-align:center;
     z-index:9999;
+    color:white;
+    font-size:22px;
+    font-weight:bold;
+    text-shadow:2px 2px 4px #000;
+}
+#countdown {
+    position:absolute;
+    top:45px;
+    width:100%;
+    text-align:center;
+    z-index:9999;
+    color:#FFD700;
+    font-size:18px;
+    font-weight:bold;
     text-shadow:1px 1px 3px #000;
 }
-#header { top:10px; font-size:22px; font-weight:bold; color:white; }
-#countdown { top:45px; font-size:18px; font-weight:bold; color:#FFD700; }
 
 .santa-icon { animation:bounce 1.2s infinite; }
 @keyframes bounce { 0%{transform:translateY(0);}50%{transform:translateY(-6px);}100%{transform:translateY(0);} }
+
 .snowflake {
-  position:absolute; top:-10px; color:white; font-size:12px; user-select:none; z-index:9999; pointer-events:none;
-  animation-name:fall; animation-timing-function:linear;
+  position:absolute;
+  top:-10px;
+  color:white;
+  font-size:12px;
+  user-select:none;
+  z-index:9999;
+  pointer-events:none;
+  animation-name:fall;
+  animation-timing-function:linear;
 }
 @keyframes fall {
   0% { transform: translateY(0) rotate(0deg); opacity:1; }
@@ -50,91 +73,116 @@ html, body {
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-/* ---------------- Map ---------------- */
-const map = L.map('map', { zoomControl:false }).setView([20,0],2);
+/* ----------------- Map ----------------- */
+const map = L.map('map', {
+    zoomControl:false,
+    dragging:false,
+    touchZoom:false,
+    scrollWheelZoom:false,
+    doubleClickZoom:false,
+    boxZoom:false,
+    keyboard:false,
+    tap:false
+}).setView([20,0],2);
 
-// Tile layer (Mapbox free token, güvenli HTTPS)
-const tileLayer = L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHR2ZmZnY2gifQ.-5dwtpLg26wPfi0mK5lShQ', {
-    attribution:'© <a href="https://www.mapbox.com/">Mapbox</a>',
-    maxZoom:18,
-    id:'mapbox/streets-v11',
-    tileSize:512,
-    zoomOffset:-1
-}).addTo(map);
+// Tile layers (HTTPS)
+const dayTile = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:18, attribution:'© OpenStreetMap' });
+const nightTile = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', { maxZoom:20, attribution:'© Stadia Maps' });
+dayTile.addTo(map);
 
-// Tam ekran WebView uyumlu
-function resizeMap(){ map.invalidateSize(); }
-window.addEventListener('load', ()=>setTimeout(resizeMap,500));
-window.addEventListener('resize', resizeMap);
+// Ensure full screen in mobile WebView
+map.whenReady(() => {
+    map.invalidateSize(true);
+    setTimeout(() => map.invalidateSize(true), 1000); // Extra delay for WebView
+});
 
-/* ---------------- Santa Icon ---------------- */
+/* ----------------- Santa Icon ----------------- */
+// Inline base64 Santa icon (artık çalışır)
 const santaIcon = L.icon({
     iconUrl:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAABfUlEQVRoge2YwQ2DMBBFT4XG0iEFyAAYO1NoTgEFOvYcTtYpWZyoROnl2I+GocvCwMJqP8FjIq3ZkhmYqC/1p6ScDJDHgN3hHYJkFX9GmAZAh4uUkc8AyJNwAtCkK5dN+AUV/nQO2iG9Rz1BOLi0i1xZVxZsAqgqpmu3lUyhBkaCkUANqNJG2iRkqBZpVEXWZk6iMNCmX5ZUkJ7+M8DVrL3tYfAcCu2a+zqQKkYtgi64GQXv99Rxxk4NfgQ1JZLqMZ0E18sRM3svGbs5wdgI8wDLMJ+7J1ug/6qXyK0lJK5rIp2bdwnO7RSCyl0tR3U7w3cH7yHytD9pzVwzqAkfB+BrWDSCewBoFQSk4AGlJZbVDCQv4AbkA+P2ztS9I7gAAAABJRU5ErkJggg==',
     iconSize:[50,50],
     className:'santa-icon'
 });
 
-/* ---------------- Cities & Animation ---------------- */
-const cities=[
+/* ----------------- Realistic Santa Route ----------------- */
+const cities = [
   {lat:90,lng:0,city:"North Pole",tz:0},
-  {lat:59.33,lng:18.07,city:"Stockholm",tz:1},
-  {lat:51.51,lng:0.13,city:"London",tz:0},
-  {lat:48.85,lng:2.35,city:"Paris",tz:1},
-  {lat:40.71,lng:-74.01,city:"New York",tz:-5},
-  {lat:34.05,lng:-118.24,city:"Los Angeles",tz:-8},
-  {lat:35.68,lng:139.76,city:"Tokyo",tz:9},
-  {lat:-33.87,lng:151.21,city:"Sydney",tz:10},
+  {lat:78.22,lng:-73.57,city:"Alert, Canada",tz:-5},
+  {lat:64.20,lng:-51.73,city:"Nuuk, Greenland",tz:-3},
+  {lat:59.33,lng:18.07,city:"Stockholm, Sweden",tz:1},
+  {lat:51.51,lng:0.13,city:"London, UK",tz:0},
+  {lat:48.85,lng:2.35,city:"Paris, France",tz:1},
+  {lat:52.52,lng:13.40,city:"Berlin, Germany",tz:1},
+  {lat:40.71,lng:-74.01,city:"New York, USA",tz:-5},
+  {lat:34.05,lng:-118.24,city:"Los Angeles, USA",tz:-8},
+  {lat:19.43,lng:-99.13,city:"Mexico City, Mexico",tz:-6},
+  {lat:-23.55,lng:-46.63,city:"Sao Paulo, Brazil",tz:-3},
+  {lat:35.68,lng:139.76,city:"Tokyo, Japan",tz:9},
+  {lat:1.29,lng:103.85,city:"Singapore",tz:8},
+  {lat:-33.87,lng:151.21,city:"Sydney, Australia",tz:10},
   {lat:90,lng:0,city:"North Pole",tz:0}
 ];
 
-let currentIndex=0;
-let santaMarker=L.marker([cities[0].lat,cities[0].lng],{icon:santaIcon}).addTo(map);
+let currentIndex = 0;
+let santaMarker = L.marker([cities[0].lat, cities[0].lng], {icon:santaIcon}).addTo(map);
 
+/* ----------------- Smooth Movement ----------------- */
 function animateSanta(marker,start,end,duration){
     let startTime=null;
+
     function step(timestamp){
         if(!startTime) startTime=timestamp;
         let progress=(timestamp-startTime)/duration;
         if(progress>1) progress=1;
-        let lat=start.lat+(end.lat-start.lat)*progress;
-        let lng=start.lng+(end.lng-start.lng)*progress;
+
+        let lat = start.lat + (end.lat-start.lat)*progress;
+        let lng = start.lng + (end.lng-start.lng)*progress;
         marker.setLatLng([lat,lng]);
         map.panTo([lat,lng], {animate:true, duration:0.5});
 
-        // Gece/Gündüz
-        const utcHour=new Date().getUTCHours();
-        const localHour=(utcHour+end.tz+24)%24;
-        map.getContainer().style.filter=(localHour>=18||localHour<6)?'brightness(0.4)':'brightness(1)';
+        // Gece/Gündüz modu
+        const utcHour = new Date().getUTCHours();
+        const localHour = (utcHour + end.tz + 24)%24;
+        if(localHour>=18 || localHour<6){
+            map.getContainer().style.filter='brightness(0.4)';
+            nightTile.addTo(map); dayTile.remove();
+        } else {
+            map.getContainer().style.filter='brightness(1)';
+            dayTile.addTo(map); nightTile.remove();
+        }
 
-        if(progress<1){ window.requestAnimationFrame(step); }
-        else {
-            currentIndex=(currentIndex+1)%cities.length;
+        if(progress<1){
+            window.requestAnimationFrame(step);
+        } else {
+            currentIndex = (currentIndex +1) % cities.length;
             animateSanta(marker,end,cities[currentIndex],4000);
         }
     }
     window.requestAnimationFrame(step);
 }
-tileLayer.on('load', ()=>animateSanta(santaMarker,cities[0],cities[1],4000));
 
-/* ---------------- Countdown ---------------- */
+// Start animation after map tiles loaded
+dayTile.on('load', ()=>animateSanta(santaMarker,cities[0],cities[1],4000));
+
+/* ----------------- Countdown ----------------- */
 function updateCountdown(){
-    let now=new Date();
-    let year=now.getFullYear();
-    let xmas=new Date(`December 25, ${year} 00:00:00`);
-    if(now>xmas) xmas=new Date(`December 25, ${year+1} 00:00:00`);
-    let diff=xmas-now;
-    let days=Math.floor(diff/(1000*60*60*24));
-    let hours=Math.floor((diff%(1000*60*60*24))/(1000*60*60));
-    let mins=Math.floor((diff%(1000*60*60))/(1000*60));
-    let secs=Math.floor((diff%(1000*60))/1000);
-    document.getElementById('countdown').innerText=`🎄 Christmas in ${days}d ${hours}h ${mins}m ${secs}s`;
+    let now = new Date();
+    let year = now.getFullYear();
+    let xmas = new Date(`December 25, ${year} 00:00:00`);
+    if(now>xmas) xmas = new Date(`December 25, ${year+1} 00:00:00`);
+    let diff = xmas-now;
+    let days = Math.floor(diff/(1000*60*60*24));
+    let hours = Math.floor((diff%(1000*60*60*24))/(1000*60*60));
+    let mins = Math.floor((diff%(1000*60*60))/(1000*60));
+    let secs = Math.floor((diff%(1000*60))/1000);
+    document.getElementById('countdown').innerText = `🎄 Christmas in ${days}d ${hours}h ${mins}m ${secs}s`;
 }
 setInterval(updateCountdown,1000);
 updateCountdown();
 
-/* ---------------- Snow ---------------- */
+/* ----------------- Snow Effect ----------------- */
 function createSnow(){
-    const snow=document.createElement('div');
+    const snow = document.createElement('div');
     snow.className='snowflake';
     snow.style.left=Math.random()*100+'vw';
     snow.style.fontSize=(10+Math.random()*10)+'px';
