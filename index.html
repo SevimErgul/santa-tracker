@@ -135,16 +135,11 @@ function showError(message) {
 document.addEventListener('DOMContentLoaded', function() {
     try {
         // Initialize the map
-        const map = L.map('map', {
-            zoomControl: false,
-            dragging: false,
-            touchZoom: false,
-            scrollWheelZoom: false,
-            doubleClickZoom: false,
-            boxZoom: false,
-            keyboard: false,
-            tap: false
-        }).setView([20, 0], 2);
+       const map = L.map('map', {
+    // Mobil etkileşimleri kapatan tüm 'false' ayarlarını kaldırarak
+    // veya 'true' yaparak varsayılan davranışı geri yüklüyoruz.
+    zoomControl: true 
+}).setView([20, 0], 2);
 
         // Create Santa marker
         const santaIcon = L.divIcon({
